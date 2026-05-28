@@ -1,0 +1,37 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: jdx/mise-action@v2
+
+      - name: Get pnpm store path
+        id: pnpm-cache
+        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+
+      - name: Create .clasprc.json
+        run: |
+          echo '{"token":{"access_token":"dummy","scope":"https://www.googleapis.com/auth/script.projects https://www.googleapis.com/auth/script.deployments https://www.googleapis.com/auth/script.webapp.deploy https://www.googleapis.com/auth/drive.file","token_type":"Bearer","expiry_date":0,"refresh_token":"${{ secrets.CLASP_REFRESH_TOKEN }}"},"oauth2ClientSettings":{"clientId":"${{ secrets.CLASP_CLIENT_ID }}","clientSecret":"${{ secrets.CLASP_CLIENT_SECRET }}","redirectUri":"http://localhost"},"isLocalCreds":false}' > ~/.clasprc.json
+
+      - name: Create .clasp.json
+        run: |
+          echo '{"scriptId":"${{ secrets.CLASP_SCRIPT_ID }}","rootDir":"dist"}' > .clasp.json
+
+      - run: pnpm exec clasp push --force
