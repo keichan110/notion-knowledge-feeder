@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+*.local
+
+# clasp（認証情報・プロジェクト設定はgit管理外）
+.clasprc.json
+.clasp.json
