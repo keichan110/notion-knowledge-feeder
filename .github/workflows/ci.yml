@@ -33,7 +33,7 @@ jobs:
       - name: Commit Biome fixes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: ":art: Apply Biome auto-fixes"
+          commit_message: "Apply Biome auto-fixes"
 
       - run: pnpm typecheck
 
