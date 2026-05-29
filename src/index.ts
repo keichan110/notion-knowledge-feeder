@@ -5,7 +5,7 @@ declare const global: {
   doPost: (e: GoogleAppsScript.Events.DoPost) => GoogleAppsScript.Content.TextOutput;
 };
 
-global.doPost = (_e) => {
+global.doPost = (e) => {
   return ContentService.createTextOutput(JSON.stringify({ status: 'ok' })).setMimeType(
     ContentService.MimeType.JSON
   );
