@@ -13,9 +13,7 @@ export const log = {
    * @param ctx 追加コンテキスト
    */
   error: (mod: string, msg: string, err?: unknown, ctx?: object): void =>
-    console.error(
-      `${fmt(mod, msg, ctx)}${err !== undefined ? ` ${String(err)}` : ''}`,
-    ),
+    console.error(`${fmt(mod, msg, ctx)}${err !== undefined ? ` ${String(err)}` : ''}`),
 };
 
 const fmt = (module: string, msg: string, ctx?: object): string =>

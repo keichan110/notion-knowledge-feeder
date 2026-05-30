@@ -44,7 +44,9 @@ describe('log', () => {
 
     it('Error オブジェクトのメッセージを付加する', () => {
       log.error('myModule', 'error occurred', new Error('something went wrong'));
-      expect(console.error).toHaveBeenCalledWith('[myModule] error occurred Error: something went wrong');
+      expect(console.error).toHaveBeenCalledWith(
+        '[myModule] error occurred Error: something went wrong'
+      );
     });
 
     it('文字列エラーをそのまま付加する', () => {
@@ -55,7 +57,7 @@ describe('log', () => {
     it('コンテキストとエラーの両方を付加する', () => {
       log.error('myModule', 'error occurred', new Error('fail'), { pageId: '123' });
       expect(console.error).toHaveBeenCalledWith(
-        '[myModule] error occurred | {"pageId":"123"} Error: fail',
+        '[myModule] error occurred | {"pageId":"123"} Error: fail'
       );
     });
 

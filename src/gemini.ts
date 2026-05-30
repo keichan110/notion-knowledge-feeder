@@ -63,13 +63,19 @@ export function callGeminiAPI(
 
   const match = text.match(/{[\s\S]*}/);
   if (!match) {
-    log.error('callGeminiAPI', 'invalid JSON from Gemini', undefined, { preview: text.slice(0, 200) });
+    log.error('callGeminiAPI', 'invalid JSON from Gemini', undefined, {
+      preview: text.slice(0, 200),
+    });
     throw new Error('Gemini returned invalid JSON');
   }
 
   const parsed = JSON.parse(match[0]) as GeminiResult;
   // TODO(dev-log): 本番運用時に削除
-  log.info('callGeminiAPI', 'success', { model: geminiModel, title: parsed.title, confidence: parsed.confidence });
+  log.info('callGeminiAPI', 'success', {
+    model: geminiModel,
+    title: parsed.title,
+    confidence: parsed.confidence,
+  });
   return parsed;
 }
 

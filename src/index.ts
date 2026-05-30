@@ -72,7 +72,10 @@ export function processPendingArticles(): void {
     const geminiResult: GeminiResult = callGeminiAPI(articleText, geminiModel, geminiApiKey);
 
     // TODO(dev-log): 本番運用時に削除
-    log.info('processPendingArticles', 'gemini ok', { title: geminiResult.title, confidence: geminiResult.confidence });
+    log.info('processPendingArticles', 'gemini ok', {
+      title: geminiResult.title,
+      confidence: geminiResult.confidence,
+    });
 
     step = 'notion';
     updateRecord(pending.id, geminiResult, '完了', notionAccessToken);
@@ -80,7 +83,10 @@ export function processPendingArticles(): void {
     // TODO(dev-log): 本番運用時に削除
     log.info('processPendingArticles', 'notion updated', { pageId: pending.id });
   } catch (err) {
-    log.error('processPendingArticles', `failed at ${step}`, err, { pageId: pending.id, url: pending.url });
+    log.error('processPendingArticles', `failed at ${step}`, err, {
+      pageId: pending.id,
+      url: pending.url,
+    });
     updateRecord(pending.id, null, 'エラー', notionAccessToken);
     return;
   }
