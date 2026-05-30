@@ -1,5 +1,11 @@
 {
   "permissions": {
-    "allow": ["Bash(gh pr view:*)", "Bash(gh pr diff:*)"]
+    "allow": [
+      "Bash(gh pr view:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(pnpm test)",
+      "Bash(pnpm typecheck)",
+      "Bash(pnpm lint)"
+    ]
   }
 }
