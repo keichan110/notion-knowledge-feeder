@@ -6,11 +6,11 @@ vi.mock('./jina');
 vi.mock('./notion');
 
 import { clearHasPending, getConfig, hasPending, setHasPending } from './config';
+import type { GeminiResult } from './gemini';
 import { callGeminiAPI } from './gemini';
+import { doPost, processPendingArticles } from './index';
 import { fetchArticleContent } from './jina';
 import { createPendingRecord, queryPendingRecord, updateRecord } from './notion';
-import { doPost, processPendingArticles } from './index';
-import type { GeminiResult } from './gemini';
 
 const mockGeminiResult: GeminiResult = {
   title: 'テスト記事',
@@ -122,12 +122,7 @@ describe('processPendingArticles', () => {
 
     expect(fetchArticleContent).toHaveBeenCalledWith('https://example.com');
     expect(callGeminiAPI).toHaveBeenCalledWith('article text', 'gemini-2.5-flash', 'gemini-key');
-    expect(updateRecord).toHaveBeenCalledWith(
-      'page-1',
-      mockGeminiResult,
-      '完了',
-      'notion-key'
-    );
+    expect(updateRecord).toHaveBeenCalledWith('page-1', mockGeminiResult, '完了', 'notion-key');
     expect(clearHasPending).toHaveBeenCalled();
   });
 
