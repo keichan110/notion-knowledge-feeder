@@ -4,7 +4,7 @@ import { writeToNotion } from './notion';
 
 const mockData: GeminiResult = {
   title: 'テスト記事',
-  tldr: '要約文',
+  tldr: ['何の記事かを示す文', 'なぜ重要かを示す文'],
   summary: [
     { heading: '背景', body: '背景の詳細' },
     { heading: '内容', body: '内容の詳細' },
@@ -71,14 +71,15 @@ describe('writeToNotion', () => {
     expect(payload.properties.Confidence.select.name).toBe('high');
 
     expect(payload.children[0].heading_2.rich_text[0].text.content).toBe('TL;DR');
-    expect(payload.children[1].paragraph.rich_text[0].text.content).toBe('要約文');
-    expect(payload.children[2].heading_2.rich_text[0].text.content).toBe('要約');
-    expect(payload.children[3].heading_3.rich_text[0].text.content).toBe('背景');
-    expect(payload.children[4].paragraph.rich_text[0].text.content).toBe('背景の詳細');
-    expect(payload.children[5].heading_3.rich_text[0].text.content).toBe('内容');
-    expect(payload.children[6].paragraph.rich_text[0].text.content).toBe('内容の詳細');
-    expect(payload.children[7].heading_3.rich_text[0].text.content).toBe('まとめ');
-    expect(payload.children[8].paragraph.rich_text[0].text.content).toBe('まとめの詳細');
+    expect(payload.children[1].bulleted_list_item.rich_text[0].text.content).toBe('何の記事かを示す文');
+    expect(payload.children[2].bulleted_list_item.rich_text[0].text.content).toBe('なぜ重要かを示す文');
+    expect(payload.children[3].heading_2.rich_text[0].text.content).toBe('要約');
+    expect(payload.children[4].heading_3.rich_text[0].text.content).toBe('背景');
+    expect(payload.children[5].paragraph.rich_text[0].text.content).toBe('背景の詳細');
+    expect(payload.children[6].heading_3.rich_text[0].text.content).toBe('内容');
+    expect(payload.children[7].paragraph.rich_text[0].text.content).toBe('内容の詳細');
+    expect(payload.children[8].heading_3.rich_text[0].text.content).toBe('まとめ');
+    expect(payload.children[9].paragraph.rich_text[0].text.content).toBe('まとめの詳細');
   });
 
   it('200以外のレスポンスの場合はエラーを投げる', () => {

@@ -28,11 +28,11 @@ export function writeToNotion(
         type: 'heading_2',
         heading_2: { rich_text: [{ type: 'text', text: { content: 'TL;DR' } }] },
       },
-      {
+      ...data.tldr.map((item) => ({
         object: 'block',
-        type: 'paragraph',
-        paragraph: { rich_text: [{ type: 'text', text: { content: data.tldr } }] },
-      },
+        type: 'bulleted_list_item',
+        bulleted_list_item: { rich_text: [{ type: 'text', text: { content: item } }] },
+      })),
       {
         object: 'block',
         type: 'heading_2',

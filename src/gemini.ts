@@ -14,7 +14,7 @@ export type SummarySection = {
 
 export type GeminiResult = {
   title: string;
-  tldr: string;
+  tldr: string[];
   summary: SummarySection[];
   category: string;
   tags: string[];
@@ -32,7 +32,7 @@ ${articleText}
 以下のJSON形式で返してください:
 {
   "title": "記事タイトル（元タイトルが適切なら流用）",
-  "tldr": "60文字以内。1文目：何の記事か。2文目：なぜ重要か",
+  "tldr": ["何の記事かを1文で", "なぜ重要か・読む価値を1文で", "（任意）補足や対象読者を1文で"],
   "summary": [
     { "heading": "背景", "body": "..." },
     { "heading": "内容", "body": "..." },

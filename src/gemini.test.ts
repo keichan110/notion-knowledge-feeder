@@ -4,7 +4,7 @@ import { callGeminiAPI } from './gemini';
 
 const validResult: GeminiResult = {
   title: 'テスト記事',
-  tldr: '要約文',
+  tldr: ['何の記事かを示す文', 'なぜ重要かを示す文'],
   summary: [
     { heading: '背景', body: '背景の詳細' },
     { heading: '内容', body: '内容の詳細' },
