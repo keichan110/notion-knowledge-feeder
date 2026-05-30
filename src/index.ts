@@ -1,6 +1,7 @@
 import { clearHasPending, getConfig, hasPending, setHasPending } from './config';
 import { callGeminiAPI, type GeminiResult } from './gemini';
 import { fetchArticleContent } from './jina';
+import { log } from './log';
 import { createPendingRecord, queryPendingRecord, updateRecord } from './notion';
 import { createResponse } from './utils';
 
@@ -31,9 +32,11 @@ export function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Cont
   try {
     createPendingRecord(url, notionDbId, notionAccessToken);
   } catch (err) {
+    log.error('doPost', 'notion write failed', err, { url });
     return createResponse(false, `Notion write failed: ${String(err)}`);
   }
 
+  log.info('doPost', 'accepted', { url });
   setHasPending();
 
   return createResponse(true, 'accepted');
@@ -55,16 +58,34 @@ export function processPendingArticles(): void {
     return;
   }
 
+  log.info('processPendingArticles', 'start', { pageId: pending.id, url: pending.url });
+
+  let step = 'fetch';
   try {
     const articleText = fetchArticleContent(pending.url);
     if (!articleText) throw new Error('Failed to fetch article');
 
+    // TODO(dev-log): 本番運用時に削除
+    log.info('processPendingArticles', 'jina ok', { chars: articleText.length });
+
+    step = 'gemini';
     const geminiResult: GeminiResult = callGeminiAPI(articleText, geminiModel, geminiApiKey);
+
+    // TODO(dev-log): 本番運用時に削除
+    log.info('processPendingArticles', 'gemini ok', { title: geminiResult.title, confidence: geminiResult.confidence });
+
+    step = 'notion';
     updateRecord(pending.id, geminiResult, '完了', notionAccessToken);
-  } catch {
+
+    // TODO(dev-log): 本番運用時に削除
+    log.info('processPendingArticles', 'notion updated', { pageId: pending.id });
+  } catch (err) {
+    log.error('processPendingArticles', `failed at ${step}`, err, { pageId: pending.id, url: pending.url });
     updateRecord(pending.id, null, 'エラー', notionAccessToken);
     return;
   }
+
+  log.info('processPendingArticles', 'done', { pageId: pending.id });
 
   const next = queryPendingRecord(notionDbId, notionAccessToken);
   if (!next) {
