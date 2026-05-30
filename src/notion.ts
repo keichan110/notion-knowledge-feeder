@@ -1,13 +1,13 @@
 import type { GeminiResult } from './gemini';
 
 export type NotionDbId = string;
-export type NotionApiKey = string;
+export type NotionConnectAccessToken = string;
 
 export function writeToNotion(
   data: GeminiResult,
   url: string,
   notionDbId: NotionDbId,
-  notionApiKey: NotionApiKey
+  notionAccessToken: NotionConnectAccessToken
 ): void {
   const endpoint = 'https://api.notion.com/v1/pages';
 
@@ -30,7 +30,7 @@ export function writeToNotion(
     method: 'post',
     contentType: 'application/json',
     headers: {
-      Authorization: `Bearer ${notionApiKey}`,
+      Authorization: `Bearer ${notionAccessToken}`,
       'Notion-Version': '2022-06-28',
     },
     payload: JSON.stringify(payload),

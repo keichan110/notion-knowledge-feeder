@@ -12,7 +12,7 @@ describe('getConfig', () => {
         SECRET_TOKEN: 'token123',
         GEMINI_API_KEY: 'gemini-key',
         GEMINI_MODEL: 'gemini-2.0-flash',
-        NOTION_API_KEY: 'notion-key',
+        NOTION_ACCESS_TOKEN: 'notion-key',
         NOTION_DB_ID: 'db-id',
       };
       return props[key] ?? null;
@@ -24,7 +24,7 @@ describe('getConfig', () => {
       secretToken: 'token123',
       geminiApiKey: 'gemini-key',
       geminiModel: 'gemini-2.0-flash',
-      notionApiKey: 'notion-key',
+      notionAccessToken: 'notion-key',
       notionDbId: 'db-id',
     });
   });
@@ -38,7 +38,7 @@ describe('getConfig', () => {
       secretToken: '',
       geminiApiKey: '',
       geminiModel: 'gemini-3.5-flash',
-      notionApiKey: '',
+      notionAccessToken: '',
       notionDbId: '',
     });
   });
