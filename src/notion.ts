@@ -17,13 +17,40 @@ export function writeToNotion(
       タイトル: { title: [{ text: { content: data.title } }] },
       既読: { checkbox: false },
       URL: { url },
-      'TL;DR': { rich_text: [{ text: { content: data.tldr } }] },
-      要約: { rich_text: [{ text: { content: data.summary } }] },
       カテゴリー: { select: { name: data.category } },
       タグ: { multi_select: data.tags.map((tag) => ({ name: tag })) },
       ステータス: { select: { name: '完了' } },
       Confidence: { select: { name: data.confidence } },
     },
+    children: [
+      {
+        object: 'block',
+        type: 'heading_2',
+        heading_2: { rich_text: [{ type: 'text', text: { content: 'TL;DR' } }] },
+      },
+      ...data.tldr.map((item) => ({
+        object: 'block',
+        type: 'bulleted_list_item',
+        bulleted_list_item: { rich_text: [{ type: 'text', text: { content: item } }] },
+      })),
+      {
+        object: 'block',
+        type: 'heading_2',
+        heading_2: { rich_text: [{ type: 'text', text: { content: '要約' } }] },
+      },
+      ...data.summary.flatMap((section) => [
+        {
+          object: 'block',
+          type: 'heading_3',
+          heading_3: { rich_text: [{ type: 'text', text: { content: section.heading } }] },
+        },
+        {
+          object: 'block',
+          type: 'paragraph',
+          paragraph: { rich_text: [{ type: 'text', text: { content: section.body } }] },
+        },
+      ]),
+    ],
   };
 
   const response = UrlFetchApp.fetch(endpoint, {
