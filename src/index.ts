@@ -6,7 +6,7 @@ import { createResponse } from './utils';
 
 // biome-ignore lint/correctness/noUnusedVariables: GAS entry point
 function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.TextOutput {
-  const { secretToken, geminiModel, geminiApiKey, notionDbId, notionApiKey } = getConfig();
+  const { secretToken, geminiModel, geminiApiKey, notionDbId, notionAccessToken } = getConfig();
 
   let body: { token?: string; url?: string };
   try {
@@ -37,7 +37,7 @@ function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.Tex
   }
 
   try {
-    writeToNotion(geminiResult, url, notionDbId, notionApiKey);
+    writeToNotion(geminiResult, url, notionDbId, notionAccessToken);
   } catch (err) {
     return createResponse(false, `Notion write failed: ${String(err)}`);
   }
@@ -93,7 +93,7 @@ function testJinaFetch() {
 // フェーズ3: Gemini結果固定値 → Notion書き込みテスト
 // biome-ignore lint/correctness/noUnusedVariables: GAS entry point
 function testGeminiToNotion() {
-  const { notionDbId, notionApiKey } = getConfig();
+  const { notionDbId, notionAccessToken } = getConfig();
   const fixedResult = {
     title: '[テスト] TypeScript入門',
     tldr: 'TypeScriptはJSに型安全性を加えた言語。大規模開発での保守性向上が主な利点。',
@@ -107,7 +107,7 @@ function testGeminiToNotion() {
 
   Logger.log('=== Notion 書き込みテスト開始 ===');
   try {
-    writeToNotion(fixedResult, testUrl, notionDbId, notionApiKey);
+    writeToNotion(fixedResult, testUrl, notionDbId, notionAccessToken);
     Logger.log('Notion書き込み成功');
   } catch (err) {
     Logger.log(`ERROR: ${String(err)}`);
@@ -119,7 +119,7 @@ function testGeminiToNotion() {
 // フェーズ4: 全体統合テスト（Jina → Gemini → Notion）
 // biome-ignore lint/correctness/noUnusedVariables: GAS entry point
 function testRun() {
-  const { geminiModel, geminiApiKey, notionDbId, notionApiKey } = getConfig();
+  const { geminiModel, geminiApiKey, notionDbId, notionAccessToken } = getConfig();
   const testUrl = 'https://zenn.dev/';
 
   Logger.log('=== 統合テスト開始 ===');
@@ -140,7 +140,7 @@ function testRun() {
   Logger.log(JSON.stringify(result));
 
   try {
-    writeToNotion(result, testUrl, notionDbId, notionApiKey);
+    writeToNotion(result, testUrl, notionDbId, notionAccessToken);
   } catch (err) {
     Logger.log(`ERROR: Notion書き込み失敗 - ${String(err)}`);
     return;
