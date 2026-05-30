@@ -4,11 +4,8 @@ import { fetchArticleContent } from './jina';
 import { writeToNotion } from './notion';
 import { createResponse } from './utils';
 
-declare const global: {
-  doPost: (e: GoogleAppsScript.Events.DoPost) => GoogleAppsScript.Content.TextOutput;
-};
-
-global.doPost = (e) => {
+// biome-ignore lint/correctness/noUnusedVariables: GAS entry point
+function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.TextOutput {
   const { secretToken, geminiModel, geminiApiKey, notionDbId, notionApiKey } = getConfig();
 
   let body: { token?: string; url?: string };
@@ -46,7 +43,7 @@ global.doPost = (e) => {
   }
 
   return createResponse(true, 'Success');
-};
+}
 
 // フェーズ1: Gemini API単体テスト
 // biome-ignore lint/correctness/noUnusedVariables: GAS entry point
