@@ -6,6 +6,9 @@ import { createResponse } from './utils';
 
 declare const global: {
   doPost: (e: GoogleAppsScript.Events.DoPost) => GoogleAppsScript.Content.TextOutput;
+  testGeminiAPI: () => void;
+  testJinaFetch: () => void;
+  testGeminiToNotion: () => void;
   testRun: () => void;
 };
 
@@ -49,16 +52,101 @@ global.doPost = (e) => {
   return createResponse(true, 'Success');
 };
 
+// フェーズ1: Gemini API単体テスト
+global.testGeminiAPI = () => {
+  const { geminiModel, geminiApiKey } = getConfig();
+  const sampleText = `TypeScriptはMicrosoftが開発・メンテナンスするJavaScriptのスーパーセットです。
+静的型付けによってコンパイル時にバグを検出でき、大規模アプリケーション開発における保守性を高めます。
+型推論、ジェネリクス、インターフェースなどの機能を備え、2023年時点でReactやNext.jsなど主要フレームワークで標準採用されています。
+VSCodeとの統合により補完や型チェックがリアルタイムに機能し、開発体験が大きく向上します。`;
+
+  Logger.log('=== Gemini API テスト開始 ===');
+  let result;
+  try {
+    result = callGeminiAPI(sampleText, geminiModel, geminiApiKey);
+  } catch (err) {
+    Logger.log(`ERROR: ${String(err)}`);
+    return;
+  }
+
+  Logger.log(JSON.stringify(result, null, 2));
+  Logger.log(`--- 検証 ---`);
+  Logger.log(`title: ${result.title}`);
+  Logger.log(`tldr length: ${result.tldr?.length ?? 0} (期待: ≤60文字)`);
+  Logger.log(`summary length: ${result.summary?.length ?? 0} (期待: 200〜300文字)`);
+  Logger.log(`category: ${result.category}`);
+  Logger.log(`tags: ${result.tags?.join(', ')}`);
+  Logger.log(`confidence: ${result.confidence}`);
+  Logger.log('=== テスト完了 ===');
+};
+
+// フェーズ2: Jina単体テスト
+global.testJinaFetch = () => {
+  const testUrl = 'https://zenn.dev/';
+
+  Logger.log('=== Jina フェッチテスト開始 ===');
+  const text = fetchArticleContent(testUrl);
+  if (!text) {
+    Logger.log('ERROR: フェッチ失敗（空文字が返った）');
+    return;
+  }
+  Logger.log(`取得文字数: ${text.length}`);
+  Logger.log(`先頭200文字: ${text.substring(0, 200)}`);
+  Logger.log('=== テスト完了 ===');
+};
+
+// フェーズ3: Gemini結果固定値 → Notion書き込みテスト
+global.testGeminiToNotion = () => {
+  const { notionDbId, notionApiKey } = getConfig();
+  const fixedResult = {
+    title: '[テスト] TypeScript入門',
+    tldr: 'TypeScriptはJSに型安全性を加えた言語。大規模開発での保守性向上が主な利点。',
+    summary:
+      'TypeScriptはMicrosoftが開発するJavaScriptのスーパーセット。静的型付けにより実行前にバグを検出できる。型推論・ジェネリクス・インターフェースを備え、ReactやNext.jsなど主要フレームワークで標準採用されている。VSCodeとの親和性も高く開発体験が向上する。',
+    category: '開発',
+    tags: ['TypeScript', 'JavaScript', 'Microsoft', 'React', 'Next.js'],
+    confidence: 'high' as const,
+  };
+  const testUrl = 'https://www.typescriptlang.org/';
+
+  Logger.log('=== Notion 書き込みテスト開始 ===');
+  try {
+    writeToNotion(fixedResult, testUrl, notionDbId, notionApiKey);
+    Logger.log('Notion書き込み成功');
+  } catch (err) {
+    Logger.log(`ERROR: ${String(err)}`);
+    return;
+  }
+  Logger.log('=== テスト完了 ===');
+};
+
+// フェーズ4: 全体統合テスト（Jina → Gemini → Notion）
 global.testRun = () => {
   const { geminiModel, geminiApiKey, notionDbId, notionApiKey } = getConfig();
   const testUrl = 'https://zenn.dev/';
 
+  Logger.log('=== 統合テスト開始 ===');
   const articleText = fetchArticleContent(testUrl);
+  if (!articleText) {
+    Logger.log('ERROR: Jinaフェッチ失敗');
+    return;
+  }
   Logger.log(`Fetched: ${articleText.substring(0, 200)}`);
 
-  const result = callGeminiAPI(articleText, geminiModel, geminiApiKey);
+  let result;
+  try {
+    result = callGeminiAPI(articleText, geminiModel, geminiApiKey);
+  } catch (err) {
+    Logger.log(`ERROR: Gemini失敗 - ${String(err)}`);
+    return;
+  }
   Logger.log(JSON.stringify(result));
 
-  writeToNotion(result, testUrl, notionDbId, notionApiKey);
-  Logger.log('Done');
+  try {
+    writeToNotion(result, testUrl, notionDbId, notionApiKey);
+  } catch (err) {
+    Logger.log(`ERROR: Notion書き込み失敗 - ${String(err)}`);
+    return;
+  }
+  Logger.log('=== 統合テスト完了 ===');
 };
