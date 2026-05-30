@@ -99,8 +99,14 @@ function testGeminiToNotion() {
     tldr: ['TypeScriptはJSに型安全性を加えた言語。', '大規模開発での保守性向上が主な利点。'],
     summary: [
       { heading: '背景', body: 'TypeScriptはMicrosoftが開発するJavaScriptのスーパーセット。' },
-      { heading: '内容', body: '静的型付けにより実行前にバグを検出できる。型推論・ジェネリクス・インターフェースを備える。' },
-      { heading: 'まとめ', body: 'ReactやNext.jsなど主要フレームワークで標準採用。VSCodeとの親和性も高く開発体験が向上する。' },
+      {
+        heading: '内容',
+        body: '静的型付けにより実行前にバグを検出できる。型推論・ジェネリクス・インターフェースを備える。',
+      },
+      {
+        heading: 'まとめ',
+        body: 'ReactやNext.jsなど主要フレームワークで標準採用。VSCodeとの親和性も高く開発体験が向上する。',
+      },
     ],
     category: '開発',
     tags: ['TypeScript', 'JavaScript', 'Microsoft', 'React', 'Next.js'],
