@@ -1,12 +1,11 @@
-import { getConfig } from './config';
+import { clearHasPending, getConfig, hasPending, setHasPending } from './config';
 import { callGeminiAPI, type GeminiResult } from './gemini';
 import { fetchArticleContent } from './jina';
-import { writeToNotion } from './notion';
+import { createPendingRecord, queryPendingRecord, updateRecord } from './notion';
 import { createResponse } from './utils';
 
-// biome-ignore lint/correctness/noUnusedVariables: GAS entry point
-function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.TextOutput {
-  const { secretToken, geminiModel, geminiApiKey, notionDbId, notionAccessToken } = getConfig();
+export function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.TextOutput {
+  const { secretToken, notionDbId, notionAccessToken } = getConfig();
 
   let body: { token?: string; url?: string };
   try {
@@ -24,25 +23,48 @@ function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.Tex
     return createResponse(false, 'URL is required');
   }
 
-  const articleText = fetchArticleContent(url);
-  if (!articleText) {
-    return createResponse(false, 'Failed to fetch article');
-  }
-
-  let geminiResult: GeminiResult;
   try {
-    geminiResult = callGeminiAPI(articleText, geminiModel, geminiApiKey);
-  } catch {
-    return createResponse(false, 'Failed to summarize');
-  }
-
-  try {
-    writeToNotion(geminiResult, url, notionDbId, notionAccessToken);
+    createPendingRecord(url, notionDbId, notionAccessToken);
   } catch (err) {
     return createResponse(false, `Notion write failed: ${String(err)}`);
   }
 
-  return createResponse(true, 'Success');
+  setHasPending();
+
+  return createResponse(true, 'accepted');
+}
+
+/**
+ * ステータスが「処理中」のNotionレコードを1件取得し、Jina・Geminiで処理してNotionを更新する。
+ * 10分間隔のGASタイムトリガーから呼び出される。
+ * `HAS_PENDING` フラグがない場合はNotion APIを呼び出さずに即座に終了する。
+ */
+export function processPendingArticles(): void {
+  const { geminiModel, geminiApiKey, notionDbId, notionAccessToken } = getConfig();
+
+  if (!hasPending()) return;
+
+  const pending = queryPendingRecord(notionDbId, notionAccessToken);
+  if (!pending) {
+    clearHasPending();
+    return;
+  }
+
+  try {
+    const articleText = fetchArticleContent(pending.url);
+    if (!articleText) throw new Error('Failed to fetch article');
+
+    const geminiResult: GeminiResult = callGeminiAPI(articleText, geminiModel, geminiApiKey);
+    updateRecord(pending.id, geminiResult, '完了', notionAccessToken);
+  } catch {
+    updateRecord(pending.id, null, 'エラー', notionAccessToken);
+    return;
+  }
+
+  const next = queryPendingRecord(notionDbId, notionAccessToken);
+  if (!next) {
+    clearHasPending();
+  }
 }
 
 // フェーズ1: Gemini API単体テスト
@@ -116,7 +138,8 @@ function testGeminiToNotion() {
 
   Logger.log('=== Notion 書き込みテスト開始 ===');
   try {
-    writeToNotion(fixedResult, testUrl, notionDbId, notionAccessToken);
+    const pageId = createPendingRecord(testUrl, notionDbId, notionAccessToken);
+    updateRecord(pageId, fixedResult, '完了', notionAccessToken);
     Logger.log('Notion書き込み成功');
   } catch (err) {
     Logger.log(`ERROR: ${String(err)}`);
@@ -149,9 +172,57 @@ function testRun() {
   Logger.log(JSON.stringify(result));
 
   try {
-    writeToNotion(result, testUrl, notionDbId, notionAccessToken);
+    const pageId = createPendingRecord(testUrl, notionDbId, notionAccessToken);
+    updateRecord(pageId, result, '完了', notionAccessToken);
   } catch (err) {
     Logger.log(`ERROR: Notion書き込み失敗 - ${String(err)}`);
+    return;
+  }
+  Logger.log('=== 統合テスト完了 ===');
+}
+
+// フェーズ5: 非同期フロー統合テスト（仮登録 → Jina → Gemini → Notion更新）
+// biome-ignore lint/correctness/noUnusedVariables: GAS entry point
+function testRunAsync() {
+  const { geminiModel, geminiApiKey, notionDbId, notionAccessToken } = getConfig();
+  const testUrl = 'https://zenn.dev/';
+
+  Logger.log('=== 統合テスト開始（非同期フロー） ===');
+  Logger.log('Step1: 仮登録...');
+  let pageId: string;
+  try {
+    pageId = createPendingRecord(testUrl, notionDbId, notionAccessToken);
+    Logger.log(`仮登録完了: ${pageId}`);
+  } catch (err) {
+    Logger.log(`ERROR: 仮登録失敗 - ${String(err)}`);
+    return;
+  }
+
+  Logger.log('Step2: Jina取得...');
+  const articleText = fetchArticleContent(testUrl);
+  if (!articleText) {
+    Logger.log('ERROR: Jinaフェッチ失敗');
+    updateRecord(pageId, null, 'エラー', notionAccessToken);
+    return;
+  }
+  Logger.log(`取得文字数: ${articleText.length}`);
+
+  Logger.log('Step3: Gemini要約...');
+  let result: GeminiResult;
+  try {
+    result = callGeminiAPI(articleText, geminiModel, geminiApiKey);
+  } catch (err) {
+    Logger.log(`ERROR: Gemini失敗 - ${String(err)}`);
+    updateRecord(pageId, null, 'エラー', notionAccessToken);
+    return;
+  }
+  Logger.log(JSON.stringify(result));
+
+  Logger.log('Step4: Notion更新...');
+  try {
+    updateRecord(pageId, result, '完了', notionAccessToken);
+  } catch (err) {
+    Logger.log(`ERROR: Notion更新失敗 - ${String(err)}`);
     return;
   }
   Logger.log('=== 統合テスト完了 ===');

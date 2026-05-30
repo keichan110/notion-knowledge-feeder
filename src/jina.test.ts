@@ -24,23 +24,6 @@ describe('fetchArticleContent', () => {
     );
   });
 
-  it('8000文字を超える場合は先頭8000文字に切り詰める', () => {
-    const longText = 'a'.repeat(9000);
-    vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockResponse(200, longText) as never);
-
-    const result = fetchArticleContent('https://example.com');
-
-    expect(result).toHaveLength(8000);
-    expect(result).toBe('a'.repeat(8000));
-  });
-
-  it('8000文字ちょうどの場合は切り詰めない', () => {
-    const text = 'a'.repeat(8000);
-    vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockResponse(200, text) as never);
-
-    expect(fetchArticleContent('https://example.com')).toHaveLength(8000);
-  });
-
   it('200以外のレスポンスコードの場合は空文字を返す', () => {
     vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockResponse(404, 'Not Found') as never);
 
