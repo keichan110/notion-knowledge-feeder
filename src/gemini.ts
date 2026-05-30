@@ -16,7 +16,9 @@ export type GeminiResult = {
   confidence: 'high' | 'medium' | 'low';
 };
 
-const PROMPT_TEMPLATE = (articleText: string) => `あなたはITエンジニア向けのナレッジキュレーターです。
+const PROMPT_TEMPLATE = (
+  articleText: string
+) => `あなたはITエンジニア向けのナレッジキュレーターです。
 以下の記事本文を分析し、JSONのみを返してください。前置きやコードブロック記号は不要です。
 
 記事本文:
@@ -35,7 +37,7 @@ ${articleText}
 export function callGeminiAPI(
   articleText: string,
   geminiModel: GeminiModel,
-  geminiApiKey: GeminiApiKey,
+  geminiApiKey: GeminiApiKey
 ): GeminiResult {
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiApiKey}`;
 

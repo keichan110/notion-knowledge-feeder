@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
-import { callGeminiAPI } from './gemini';
+import { describe, expect, it, vi } from 'vitest';
 import type { GeminiResult } from './gemini';
+import { callGeminiAPI } from './gemini';
 
 const validResult: GeminiResult = {
   title: 'テスト記事',
@@ -38,7 +38,7 @@ describe('callGeminiAPI', () => {
 
     expect(UrlFetchApp.fetch).toHaveBeenCalledWith(
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=my-api-key',
-      expect.objectContaining({ method: 'post', contentType: 'application/json' }),
+      expect.objectContaining({ method: 'post', contentType: 'application/json' })
     );
   });
 
@@ -49,7 +49,7 @@ describe('callGeminiAPI', () => {
     vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockResponse(200, responseText) as never);
 
     expect(() => callGeminiAPI('記事本文', 'gemini-2.5-flash', 'api-key')).toThrow(
-      'Gemini returned invalid JSON',
+      'Gemini returned invalid JSON'
     );
   });
 
@@ -58,7 +58,7 @@ describe('callGeminiAPI', () => {
     vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockResponse(200, responseText) as never);
 
     expect(() => callGeminiAPI('記事本文', 'gemini-2.5-flash', 'api-key')).toThrow(
-      'Gemini returned invalid JSON',
+      'Gemini returned invalid JSON'
     );
   });
 

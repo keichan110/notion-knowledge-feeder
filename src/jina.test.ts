@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { fetchArticleContent } from './jina';
 
 const mockResponse = (code: number, text: string) => ({
@@ -20,7 +20,7 @@ describe('fetchArticleContent', () => {
 
     expect(UrlFetchApp.fetch).toHaveBeenCalledWith(
       'https://r.jina.ai/https://example.com/article',
-      { muteHttpExceptions: true },
+      { muteHttpExceptions: true }
     );
   });
 

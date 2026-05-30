@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getTodayString, getWeekString, createResponse } from './utils';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createResponse, getTodayString, getWeekString } from './utils';
 
 describe('getTodayString', () => {
   it('UtilitiesのformatDateの結果を返す', () => {
@@ -9,7 +9,7 @@ describe('getTodayString', () => {
     expect(Utilities.formatDate).toHaveBeenCalledWith(
       expect.any(Date),
       expect.any(String),
-      'yyyy-MM-dd',
+      'yyyy-MM-dd'
     );
   });
 });
@@ -40,7 +40,7 @@ describe('createResponse', () => {
     const result = createResponse(true, 'OK');
 
     expect(ContentService.createTextOutput).toHaveBeenCalledWith(
-      JSON.stringify({ success: true, message: 'OK' }),
+      JSON.stringify({ success: true, message: 'OK' })
     );
     expect(result.setMimeType).toHaveBeenCalledWith(ContentService.MimeType.JSON);
   });
@@ -49,7 +49,7 @@ describe('createResponse', () => {
     createResponse(false, 'error occurred');
 
     expect(ContentService.createTextOutput).toHaveBeenCalledWith(
-      JSON.stringify({ success: false, message: 'error occurred' }),
+      JSON.stringify({ success: false, message: 'error occurred' })
     );
   });
 });

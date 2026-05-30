@@ -1,4 +1,4 @@
-import { type GeminiResult } from './gemini';
+import type { GeminiResult } from './gemini';
 import { getTodayString, getWeekString } from './utils';
 
 export type NotionDbId = string;
@@ -8,7 +8,7 @@ export function writeToNotion(
   data: GeminiResult,
   url: string,
   notionDbId: NotionDbId,
-  notionApiKey: NotionApiKey,
+  notionApiKey: NotionApiKey
 ): void {
   const endpoint = 'https://api.notion.com/v1/pages';
 

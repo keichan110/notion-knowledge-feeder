@@ -1,5 +1,5 @@
 import { getConfig } from './config';
-import { callGeminiAPI } from './gemini';
+import { callGeminiAPI, type GeminiResult } from './gemini';
 import { fetchArticleContent } from './jina';
 import { writeToNotion } from './notion';
 import { createResponse } from './utils';
@@ -36,7 +36,7 @@ global.doPost = (e) => {
     return createResponse(false, 'Failed to fetch article');
   }
 
-  let geminiResult;
+  let geminiResult: GeminiResult;
   try {
     geminiResult = callGeminiAPI(articleText, geminiModel, geminiApiKey);
   } catch {
@@ -61,7 +61,7 @@ global.testGeminiAPI = () => {
 VSCodeとの統合により補完や型チェックがリアルタイムに機能し、開発体験が大きく向上します。`;
 
   Logger.log('=== Gemini API テスト開始 ===');
-  let result;
+  let result: GeminiResult;
   try {
     result = callGeminiAPI(sampleText, geminiModel, geminiApiKey);
   } catch (err) {
@@ -133,7 +133,7 @@ global.testRun = () => {
   }
   Logger.log(`Fetched: ${articleText.substring(0, 200)}`);
 
-  let result;
+  let result: GeminiResult;
   try {
     result = callGeminiAPI(articleText, geminiModel, geminiApiKey);
   } catch (err) {

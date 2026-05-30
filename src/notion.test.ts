@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
-import { writeToNotion } from './notion';
+import { describe, expect, it, vi } from 'vitest';
 import type { GeminiResult } from './gemini';
+import { writeToNotion } from './notion';
 
 const mockData: GeminiResult = {
   title: 'テスト記事',
@@ -21,7 +21,7 @@ describe('writeToNotion', () => {
     vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockResponse(200) as never);
 
     expect(() =>
-      writeToNotion(mockData, 'https://example.com', 'db-id', 'notion-key'),
+      writeToNotion(mockData, 'https://example.com', 'db-id', 'notion-key')
     ).not.toThrow();
   });
 
@@ -39,7 +39,7 @@ describe('writeToNotion', () => {
           Authorization: 'Bearer notion-key',
           'Notion-Version': '2022-06-28',
         },
-      }),
+      })
     );
   });
 
@@ -53,24 +53,27 @@ describe('writeToNotion', () => {
     const payload = JSON.parse(options.payload);
 
     expect(payload.parent.database_id).toBe('db-id');
+    // biome-ignore lint/complexity/useLiteralKeys: 日本語キーはブラケット記法を維持
     expect(payload.properties['タイトル'].title[0].text.content).toBe('テスト記事');
-    expect(payload.properties['URL'].url).toBe('https://example.com');
+    expect(payload.properties.URL.url).toBe('https://example.com');
     expect(payload.properties['TL;DR'].rich_text[0].text.content).toBe('要約文');
+    // biome-ignore lint/complexity/useLiteralKeys: 日本語キーはブラケット記法を維持
     expect(payload.properties['大分類'].select.name).toBe('AI/ML');
+    // biome-ignore lint/complexity/useLiteralKeys: 日本語キーはブラケット記法を維持
     expect(payload.properties['タグ'].multi_select).toEqual([
       { name: 'TypeScript' },
       { name: 'Vitest' },
     ]);
-    expect(payload.properties['Confidence'].select.name).toBe('high');
+    expect(payload.properties.Confidence.select.name).toBe('high');
   });
 
   it('200以外のレスポンスの場合はエラーを投げる', () => {
     vi.mocked(UrlFetchApp.fetch).mockReturnValue(
-      mockResponse(400, '{"message":"Bad Request"}') as never,
+      mockResponse(400, '{"message":"Bad Request"}') as never
     );
 
-    expect(() =>
-      writeToNotion(mockData, 'https://example.com', 'db-id', 'notion-key'),
-    ).toThrow('Notion API error');
+    expect(() => writeToNotion(mockData, 'https://example.com', 'db-id', 'notion-key')).toThrow(
+      'Notion API error'
+    );
   });
 });
