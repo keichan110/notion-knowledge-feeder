@@ -15,6 +15,7 @@ export function writeToNotion(
     parent: { database_id: notionDbId },
     properties: {
       タイトル: { title: [{ text: { content: data.title } }] },
+      既読: { checkbox: false },
       URL: { url },
       'TL;DR': { rich_text: [{ text: { content: data.tldr } }] },
       要約: { rich_text: [{ text: { content: data.summary } }] },
