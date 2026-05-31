@@ -5,7 +5,23 @@
       "Bash(gh pr diff:*)",
       "Bash(pnpm test)",
       "Bash(pnpm typecheck)",
-      "Bash(pnpm lint)"
+      "Bash(pnpm lint)",
+      "Bash(pnpm check)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pnpm check && pnpm typecheck && pnpm test 2>/dev/null || true",
+            "statusMessage": "format / typecheck / test 実行中...",
+            "timeout": 120
+          }
+        ]
+      }
     ]
   }
 }

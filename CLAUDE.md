@@ -46,7 +46,7 @@ writeToNotion() [notion.ts]       ← Notion API v2022-06-28 でページ作成
 
 ### 重要な設計上の制約
 
-**GAS環境**: `UrlFetchApp`・`PropertiesService`・`ContentService` はGAS固有のグローバルAPIで、Node.jsには存在しない。テストでは `src/test/setup.ts` でviのグローバルスタブとして注入している。
+**GAS環境**: `UrlFetchApp`・`PropertiesService`・`ContentService` はGAS固有のグローバルAPIで、Node.jsには存在しない。
 
 **バンドル方式**: GASはES modules非対応のため、Rollupで単一ファイル（`dist/bundle.js`）に結合してESM形式で出力する。`disableEntryPointTreeShaking`プラグインによりエントリポイントの関数が除去されないよう保護し、`export {}` 行も除去している。`doPost`・`testRun`等のGASエントリポイント関数はglobalに露出する必要があるため、`biome-ignore`コメントで`noUnusedVariables`を抑制している。
 
@@ -62,9 +62,3 @@ writeToNotion() [notion.ts]       ← Notion API v2022-06-28 でページ作成
 | `src/gemini.ts` | Gemini APIで記事を要約・構造化し `GeminiResult` を返す |
 | `src/notion.ts` | `GeminiResult` をNotionページとして書き込む |
 | `src/utils.ts` | `createResponse()`（GASレスポンス生成） |
-
-## コードスタイル
-
-- フォーマット・lintはBiome（`biome.json`の設定に従う）
-- exportされる関数（public API）はファイルの先頭にまとめ、内部ヘルパー関数は末尾に置く
-- すべての関数にTSDoc準拠のコメントを付ける（`@param`・`@returns` を含める）
