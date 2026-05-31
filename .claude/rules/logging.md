@@ -6,7 +6,7 @@ paths:
 
 # ログルール
 
-詳細な戦略は `docs/logging-rules.md` を参照。
+詳細な戦略は `docs/guides/logging-rules.md` を参照。
 
 ## 必須ルール
 

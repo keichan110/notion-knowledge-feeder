@@ -64,4 +64,4 @@ export function callGeminiAPI(...): GeminiResult { ... }
 
 ## ログ
 
-[`docs/logging-rules.md`](./logging-rules.md) を参照。
+[`docs/guides/logging-rules.md`](./logging-rules.md) を参照。

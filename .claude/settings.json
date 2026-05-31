@@ -10,6 +10,18 @@
     ]
   },
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/block-protected-files.sh",
+            "statusMessage": "lock ファイルの編集をチェック中..."
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "matcher": "",

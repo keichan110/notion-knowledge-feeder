@@ -5,7 +5,7 @@ paths:
 
 # コードスタイルガイドライン
 
-詳細は `docs/code-guideline.md` を参照。
+詳細は `docs/guides/code-guideline.md` を参照。
 
 ## 必須ルール
 
