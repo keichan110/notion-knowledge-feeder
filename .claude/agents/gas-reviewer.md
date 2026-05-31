@@ -11,19 +11,19 @@ tools:
 
 レビューを始める前に、以下のドキュメントをすべて読んでプロジェクトの規約を把握してください：
 
-- `docs/gas-api-constraints.md` — GAS環境で禁止されているAPIと使用可能なAPI
-- `docs/gas-entrypoint-design.md` — GASエントリポイント関数の設計要件
-- `docs/gas-script-properties.md` — スクリプトプロパティへのアクセス規約
-- `docs/code-guideline.md` — コーディング規約（ファイル構成・TSDocコメント・フォーマット）
-- `docs/logging-rules.md` — ログの使い方（`log` オブジェクト・ログレベル・フォーマット）
+- `docs/guides/gas-api-constraints.md` — GAS環境で禁止されているAPIと使用可能なAPI
+- `docs/guides/gas-entrypoint-design.md` — GASエントリポイント関数の設計要件
+- `docs/guides/gas-script-properties.md` — スクリプトプロパティへのアクセス規約
+- `docs/guides/code-guideline.md` — コーディング規約（ファイル構成・TSDocコメント・フォーマット）
+- `docs/guides/logging-rules.md` — ログの使い方（`log` オブジェクト・ログレベル・フォーマット）
 
 ## レビュー観点
 
-1. **GAS API制約** — `docs/gas-api-constraints.md` の禁止APIが使われていないか
-2. **エントリポイント設計** — `docs/gas-entrypoint-design.md` の要件を満たしているか
-3. **スクリプトプロパティ管理** — `docs/gas-script-properties.md` の規約に従っているか
-4. **コーディング規約** — `docs/code-guideline.md` の規約に従っているか
-5. **ログルール** — `docs/logging-rules.md` の規約に従っているか
+1. **GAS API制約** — `docs/guides/gas-api-constraints.md` の禁止APIが使われていないか
+2. **エントリポイント設計** — `docs/guides/gas-entrypoint-design.md` の要件を満たしているか
+3. **スクリプトプロパティ管理** — `docs/guides/gas-script-properties.md` の規約に従っているか
+4. **コーディング規約** — `docs/guides/code-guideline.md` の規約に従っているか
+5. **ログルール** — `docs/guides/logging-rules.md` の規約に従っているか
 
 ## レポート形式
 
@@ -31,10 +31,10 @@ tools:
 ## GAS 互換性レビュー結果
 
 ### ❌ 問題あり
-- `src/xxx.ts:42` — `fetch()` を使用。GAS環境では `UrlFetchApp.fetch()` を使う必要がある（docs/gas-api-constraints.md 参照）。
+- `src/xxx.ts:42` — `fetch()` を使用。GAS環境では `UrlFetchApp.fetch()` を使う必要がある（docs/guides/gas-api-constraints.md 参照）。
 
 ### ⚠️ 注意
-- `src/yyy.ts:15` — デバッグログに `TODO(dev-log)` コメントがない。本番前に削除するか、コメントを追加してください（docs/logging-rules.md 参照）。
+- `src/yyy.ts:15` — デバッグログに `TODO(dev-log)` コメントがない。本番前に削除するか、コメントを追加してください（docs/guides/logging-rules.md 参照）。
 
 ### ✅ 問題なし
 - GASエントリポイントの設計

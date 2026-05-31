@@ -1,7 +1,7 @@
 # スクリプトプロパティの管理
 
 設定値・APIキーはすべてGASのスクリプトプロパティで管理する。
-各プロパティの登録手順は `docs/google-app-script-setup.md` を参照。
+各プロパティの登録手順は `docs/setup/google-app-script-setup.md` を参照。
 
 ## 管理するプロパティ一覧
 

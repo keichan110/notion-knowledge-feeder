@@ -5,7 +5,7 @@ paths:
 
 # テスト規約
 
-詳細は `docs/testing-guideline.md` を参照。
+詳細は `docs/guides/testing-guideline.md` を参照。
 
 ## 必須ルール
 
