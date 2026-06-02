@@ -87,13 +87,14 @@ GitHub リポジトリの **Settings → Secrets and variables → Actions** に
 | `CLASP_CLIENT_ID` | OAuthクライアントID | `~/.clasprc.json` の `tokens.default.client_id` |
 | `CLASP_CLIENT_SECRET` | OAuthクライアントシークレット | `~/.clasprc.json` の `tokens.default.client_secret` |
 | `CLASP_SCRIPT_ID` | GASプロジェクトのスクリプトID | script.google.com のURLまたは `.clasp.json` の `scriptId` |
+| `CLASP_DEPLOYMENT_ID` | ウェブアプリのデプロイID | GASエディタで初回手動デプロイ後、「デプロイを管理」から確認（詳細は [docs/setup/google-app-script-setup.md](docs/setup/google-app-script-setup.md) 参照） |
 
 #### ワークフロー
 
 | ワークフロー | トリガー | 内容 |
 |---|---|---|
 | CI | push / PR → main | typecheck + build |
-| Deploy | push → main | build + clasp push |
+| Deploy | push → main | build + clasp push + clasp deploy |
 
 ## ディレクトリ構成
 
