@@ -38,3 +38,47 @@ describe('fetchArticleContent', () => {
     expect(fetchArticleContent('https://example.com')).toBe('');
   });
 });
+
+describe('fetchArticleContent 429リトライ', () => {
+  it('429の後に200が返ったときは記事本文を返す', () => {
+    vi.mocked(UrlFetchApp.fetch)
+      .mockReturnValueOnce(mockResponse(429, 'Too Many Requests') as never)
+      .mockReturnValueOnce(mockResponse(200, 'article content') as never);
+
+    expect(fetchArticleContent('https://example.com')).toBe('article content');
+  });
+
+  it('429が3回続いたら空文字を返す', () => {
+    vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockResponse(429, '') as never);
+
+    expect(fetchArticleContent('https://example.com')).toBe('');
+  });
+
+  it('429リトライ時にUtilities.sleepが呼ばれる', () => {
+    vi.mocked(UrlFetchApp.fetch)
+      .mockReturnValueOnce(mockResponse(429, '') as never)
+      .mockReturnValueOnce(mockResponse(200, '') as never);
+
+    fetchArticleContent('https://example.com');
+
+    expect(Utilities.sleep).toHaveBeenCalledWith(1000);
+  });
+
+  it('指数バックオフで待機時間が倍増する', () => {
+    vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockResponse(429, '') as never);
+
+    fetchArticleContent('https://example.com');
+
+    expect(Utilities.sleep).toHaveBeenNthCalledWith(1, 1000);
+    expect(Utilities.sleep).toHaveBeenNthCalledWith(2, 2000);
+    expect(Utilities.sleep).toHaveBeenNthCalledWith(3, 4000);
+  });
+
+  it('429以外のエラーはリトライせず1回で終了する', () => {
+    vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockResponse(500, '') as never);
+
+    fetchArticleContent('https://example.com');
+
+    expect(UrlFetchApp.fetch).toHaveBeenCalledTimes(1);
+  });
+});

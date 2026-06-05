@@ -1,4 +1,8 @@
-import { vi } from 'vitest';
+import { beforeEach, vi } from 'vitest';
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 const mockFetchResponse = {
   getContentText: vi.fn().mockReturnValue(''),
@@ -19,6 +23,7 @@ vi.stubGlobal('PropertiesService', {
 
 vi.stubGlobal('Utilities', {
   formatDate: vi.fn().mockReturnValue('2026-01-01'),
+  sleep: vi.fn(),
 });
 
 vi.stubGlobal('Session', {
