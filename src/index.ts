@@ -2,7 +2,7 @@ import { clearHasPending, getConfig, hasPending, setHasPending } from './config'
 import { callGeminiAPI, type GeminiResult } from './gemini';
 import { fetchArticleContent } from './jina';
 import { log } from './log';
-import { createPendingRecord, queryPendingRecord, updateRecord } from './notion';
+import { createPendingRecord, DuplicateUrlError, queryPendingRecord, updateRecord } from './notion';
 import { fetchQiitaTrendUrls, fetchZennTrendUrls } from './trend';
 import { createResponse } from './utils';
 
@@ -131,6 +131,14 @@ export function processPendingArticles(): void {
 
 function registerPendingUrl(url: string): void {
   const { notionDbId, notionAccessToken } = getConfig();
-  createPendingRecord(url, notionDbId, notionAccessToken);
+  try {
+    createPendingRecord(url, notionDbId, notionAccessToken);
+  } catch (err) {
+    if (err instanceof DuplicateUrlError) {
+      log.info('registerPendingUrl', 'skip duplicate', { url });
+      return;
+    }
+    throw err;
+  }
   setHasPending();
 }

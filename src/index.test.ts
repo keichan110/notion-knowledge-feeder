@@ -11,7 +11,7 @@ import type { GeminiResult } from './gemini';
 import { callGeminiAPI } from './gemini';
 import { doPost, processPendingArticles, processTrendingQiita, processTrendingZenn } from './index';
 import { fetchArticleContent } from './jina';
-import { createPendingRecord, queryPendingRecord, updateRecord } from './notion';
+import { createPendingRecord, DuplicateUrlError, queryPendingRecord, updateRecord } from './notion';
 import { fetchQiitaTrendUrls, fetchZennTrendUrls } from './trend';
 
 const mockGeminiResult: GeminiResult = {
@@ -77,6 +77,19 @@ describe('doPost', () => {
 
     expect(createPendingRecord).toHaveBeenCalledWith('https://example.com', 'db-id', 'notion-key');
     expect(setHasPending).toHaveBeenCalled();
+    expect(ContentService.createTextOutput).toHaveBeenCalledWith(
+      JSON.stringify({ success: true, message: 'accepted' })
+    );
+  });
+
+  it('登録済みURLの場合はHAS_PENDINGをセットせずacceptedを返す', () => {
+    vi.mocked(createPendingRecord).mockImplementation(() => {
+      throw new DuplicateUrlError('https://example.com');
+    });
+
+    doPost(mockEvent({ token: 'valid-token', url: 'https://example.com' }));
+
+    expect(setHasPending).not.toHaveBeenCalled();
     expect(ContentService.createTextOutput).toHaveBeenCalledWith(
       JSON.stringify({ success: true, message: 'accepted' })
     );
@@ -203,6 +216,23 @@ describe('processTrendingQiita', () => {
     vi.mocked(createPendingRecord)
       .mockImplementationOnce(() => {
         throw new Error('notion error');
+      })
+      .mockReturnValueOnce('page-id');
+
+    processTrendingQiita();
+
+    expect(createPendingRecord).toHaveBeenCalledTimes(2);
+    expect(setHasPending).toHaveBeenCalled();
+  });
+
+  it('登録済みURLはスキップして未登録URLのみ登録する', () => {
+    vi.mocked(fetchQiitaTrendUrls).mockReturnValue([
+      'https://qiita.com/article1',
+      'https://qiita.com/article2',
+    ]);
+    vi.mocked(createPendingRecord)
+      .mockImplementationOnce(() => {
+        throw new DuplicateUrlError('https://qiita.com/article1');
       })
       .mockReturnValueOnce('page-id');
 

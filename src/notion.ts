@@ -3,6 +3,16 @@ import type { GeminiResult } from './gemini';
 export type NotionDbId = string;
 export type NotionConnectAccessToken = string;
 
+/**
+ * URLが既にNotionデータベースに登録済みの場合にスローされるエラー。
+ */
+export class DuplicateUrlError extends Error {
+  constructor(url: string) {
+    super(`URL already registered: ${url}`);
+    this.name = 'DuplicateUrlError';
+  }
+}
+
 const NOTION_API_BASE = 'https://api.notion.com/v1';
 
 /**
@@ -11,12 +21,15 @@ const NOTION_API_BASE = 'https://api.notion.com/v1';
  * @param notionDbId 保存先NotionデータベースID
  * @param notionAccessToken Notion APIアクセストークン
  * @returns 作成されたNotionページID
+ * @throws {DuplicateUrlError} URLが既に登録済みの場合
  */
 export function createPendingRecord(
   url: string,
   notionDbId: NotionDbId,
   notionAccessToken: NotionConnectAccessToken
 ): string {
+  if (isUrlRegistered(url, notionDbId, notionAccessToken)) throw new DuplicateUrlError(url);
+
   const response = UrlFetchApp.fetch(
     `${NOTION_API_BASE}/pages`,
     notionFetchOptions('post', notionAccessToken, {
@@ -134,6 +147,28 @@ export function updateRecord(
     );
     assertOk(blockResponse);
   }
+}
+
+function isUrlRegistered(
+  url: string,
+  notionDbId: NotionDbId,
+  notionAccessToken: NotionConnectAccessToken
+): boolean {
+  const response = UrlFetchApp.fetch(
+    `${NOTION_API_BASE}/databases/${notionDbId}/query`,
+    notionFetchOptions('post', notionAccessToken, {
+      filter: {
+        property: 'URL',
+        url: { equals: url },
+      },
+      page_size: 1,
+    })
+  );
+
+  assertOk(response);
+
+  const result = JSON.parse(response.getContentText()) as { results: unknown[] };
+  return result.results.length > 0;
 }
 
 /**
