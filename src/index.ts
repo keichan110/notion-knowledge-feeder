@@ -4,7 +4,7 @@ import { fetchArticleContent } from './jina';
 import { log } from './log';
 import { createPendingRecord, DuplicateUrlError, queryPendingRecord, updateRecord } from './notion';
 import { fetchQiitaTrendUrls, fetchZennTrendUrls } from './trend';
-import { createResponse } from './utils';
+import { createResponse, stripQueryString } from './utils';
 
 /**
  * iOSショートカットからのPOSTリクエストを受け取り、NotionにURLを仮登録する。
@@ -151,11 +151,12 @@ export function testFetchQiitaUrls(): void {
 
 function registerPendingUrl(url: string): void {
   const { notionDbId, notionAccessToken } = getConfig();
+  const normalizedUrl = stripQueryString(url);
   try {
-    createPendingRecord(url, notionDbId, notionAccessToken);
+    createPendingRecord(normalizedUrl, notionDbId, notionAccessToken);
   } catch (err) {
     if (err instanceof DuplicateUrlError) {
-      log.info('registerPendingUrl', 'skip duplicate', { url });
+      log.info('registerPendingUrl', 'skip duplicate', { url: normalizedUrl });
       return;
     }
     throw err;

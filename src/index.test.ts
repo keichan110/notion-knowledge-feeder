@@ -82,6 +82,21 @@ describe('doPost', () => {
     );
   });
 
+  it('クエリパラメーター付きURLはクエリを除去してNotionに登録する', () => {
+    doPost(
+      mockEvent({
+        token: 'valid-token',
+        url: 'https://example.com/article?ref=top&utm_source=feed',
+      })
+    );
+
+    expect(createPendingRecord).toHaveBeenCalledWith(
+      'https://example.com/article',
+      'db-id',
+      'notion-key'
+    );
+  });
+
   it('登録済みURLの場合はHAS_PENDINGをセットせずacceptedを返す', () => {
     vi.mocked(createPendingRecord).mockImplementation(() => {
       throw new DuplicateUrlError('https://example.com');
