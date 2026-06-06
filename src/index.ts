@@ -44,7 +44,7 @@ export function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Cont
 
 /**
  * QiitaのトレンドフィードからURLを取得してNotionに仮登録する。
- * GASタイムトリガー（週次）から呼び出される。
+ * GASタイムトリガー（日次）から呼び出される。
  */
 export function processTrendingQiita(): void {
   const urls = fetchQiitaTrendUrls();
@@ -65,7 +65,7 @@ export function processTrendingQiita(): void {
 
 /**
  * ZennのトレンドフィードからURLを取得してNotionに仮登録する。
- * GASタイムトリガー（週次）から呼び出される。
+ * GASタイムトリガー（日次）から呼び出される。
  */
 export function processTrendingZenn(): void {
   const urls = fetchZennTrendUrls();

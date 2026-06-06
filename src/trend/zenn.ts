@@ -1,7 +1,7 @@
 import { log } from '../log';
 
 const ZENN_FEED_URL = 'https://zenn.dev/feed';
-const ZENN_TREND_LIMIT = 10;
+const ZENN_TREND_LIMIT = 3;
 
 /**
  * ZennのトレンドRSSフィードからトレンドURLリストを取得する。

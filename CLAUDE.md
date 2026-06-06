@@ -44,7 +44,7 @@ registerPendingUrl() [index.ts]   ← クエリ文字列除去・重複チェッ
     ↓
 createPendingRecord() [notion.ts] ← Notion API にステータス「処理中」で仮登録
 
-【トレンド自動登録】（GASタイムトリガー・週次）
+【トレンド自動登録】（GASタイムトリガー・日次・7〜8時）
 processTrendingQiita() / processTrendingZenn() [index.ts]
     ↓
 fetchQiitaTrendUrls() / fetchZennTrendUrls() [trend/]  ← Atom/RSSフィードから上位10件取得
