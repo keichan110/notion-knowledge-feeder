@@ -16,11 +16,10 @@ export type SummarySection = {
 
 export type GeminiResult = {
   title: string;
-  tldr: string[];
+  overview: string;
   summary: SummarySection[];
   category: string;
   tags: string[];
-  confidence: 'high' | 'medium' | 'low';
 };
 
 /**
@@ -74,7 +73,6 @@ export function callGeminiAPI(
   log.info('callGeminiAPI', 'success', {
     model: geminiModel,
     title: parsed.title,
-    confidence: parsed.confidence,
   });
   return parsed;
 }
@@ -90,13 +88,15 @@ ${articleText}
 以下のJSON形式で返してください:
 {
   "title": "記事タイトル（元タイトルが適切なら流用）",
-  "tldr": ["何の記事かを1文で", "なぜ重要か・読む価値を1文で", "（任意）補足や対象読者を1文で"],
+  "overview": "この記事が何についての記事かを1文で説明する。事実のみを記述し、重要性・価値の判断・推測は含めないこと",
   "summary": [
-    { "heading": "背景", "body": "記事の背景・問題意識を2〜3文で。技術的な文脈や動機を具体的に記述すること" },
-    { "heading": "内容", "body": "主要な内容・手法・知見を4〜6文で詳述する。具体的な技術名・プロダクト名・手順・数値・コード上の要点を漏らさず含めること。箇条書き（「・」区切り）を使ってもよい" },
-    { "heading": "まとめ", "body": "読者が得られる具体的な知見・学び・次のアクションを2〜3文で。抽象的な表現を避け、実践的な示唆を記述すること" }
+    {
+      "heading": "<記事の章立てや話題の流れに沿った見出し>",
+      "body": "その節の内容を詳述する。手順がある場合は全ステップを省略せず列挙し、数値・ベンチマーク・具体的な設定値があれば必ず含める。理由や背景が記事に書かれている場合は省略しない。文量は情報の網羅性を優先し、文字数制限は設けない。箇条書き（「・」区切り）を使ってもよい"
+    }
   ],
   "category": "AI/ML、開発、インフラ、セキュリティ、ビジネス、ツール、マネジメント、自己啓発、その他 のいずれか1つ",
-  "tags": ["固有名詞・技術名を優先した3〜5個のキーワード"],
-  "confidence": "high/medium/low（本文の情報量の自己評価）"
-}`;
+  "tags": ["固有名詞・技術名を優先した3〜5個のキーワード"]
+}
+
+summaryのセクション数は記事の内容に応じて自由に決めること。記事の章立て・話題の展開に忠実に従い、重要な情報を省略しないこと。`;

@@ -4,15 +4,13 @@ import { createPendingRecord, queryPendingRecord, updateRecord } from './notion'
 
 const mockGeminiResult: GeminiResult = {
   title: 'テスト記事',
-  tldr: ['何の記事かを示す文', 'なぜ重要かを示す文'],
+  overview: 'TypeScriptとVitestを使ったテスト手法の紹介記事',
   summary: [
     { heading: '背景', body: '背景の詳細' },
     { heading: '内容', body: '内容の詳細' },
-    { heading: 'まとめ', body: 'まとめの詳細' },
   ],
   category: 'AI/ML',
   tags: ['TypeScript', 'Vitest'],
-  confidence: 'high',
 };
 
 const mockResponse = (code: number, text = '') => ({
@@ -151,18 +149,18 @@ describe('updateRecord', () => {
     expect(payload.properties['ステータス'].select.name).toBe('完了');
   });
 
-  it('「完了」時にTL;DRと要約のブロックを追加する', () => {
+  it('「完了」時に概要と要約のブロックを追加する', () => {
     vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockResponse(200, '{}') as never);
 
     updateRecord('page-1', mockGeminiResult, '完了', 'notion-key');
 
     const [, options] = vi.mocked(UrlFetchApp.fetch).mock.calls[1];
     const payload = JSON.parse((options as { payload: string }).payload);
-    expect(payload.children[0].heading_2.rich_text[0].text.content).toBe('TL;DR');
-    expect(payload.children[1].bulleted_list_item.rich_text[0].text.content).toBe(
-      '何の記事かを示す文'
+    expect(payload.children[0].paragraph.rich_text[0].text.content).toBe(
+      'TypeScriptとVitestを使ったテスト手法の紹介記事'
     );
-    expect(payload.children[3].heading_2.rich_text[0].text.content).toBe('要約');
+    expect(payload.children[1].heading_2.rich_text[0].text.content).toBe('要約');
+    expect(payload.children[2].heading_3.rich_text[0].text.content).toBe('背景');
   });
 
   it('「エラー」時はステータスのみ更新する1回のfetchのみ', () => {

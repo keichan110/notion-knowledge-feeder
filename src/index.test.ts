@@ -14,11 +14,10 @@ import { createPendingRecord, queryPendingRecord, updateRecord } from './notion'
 
 const mockGeminiResult: GeminiResult = {
   title: 'テスト記事',
-  tldr: ['文1', '文2'],
+  overview: 'TypeScriptを使った開発手法の紹介記事',
   summary: [{ heading: '背景', body: '詳細' }],
   category: '開発',
   tags: ['TypeScript'],
-  confidence: 'high',
 };
 
 const mockEvent = (body: object): GoogleAppsScript.Events.DoPost =>

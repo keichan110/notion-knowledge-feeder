@@ -94,7 +94,6 @@ export function updateRecord(
     properties['カテゴリー'] = { select: { name: data.category } };
     // biome-ignore lint/complexity/useLiteralKeys: 日本語キーはブラケット記法を維持
     properties['タグ'] = { multi_select: data.tags.map((tag) => ({ name: tag })) };
-    properties.Confidence = { select: { name: data.confidence } };
   }
 
   const propResponse = UrlFetchApp.fetch(
@@ -107,14 +106,9 @@ export function updateRecord(
     const children = [
       {
         object: 'block',
-        type: 'heading_2',
-        heading_2: { rich_text: [{ type: 'text', text: { content: 'TL;DR' } }] },
+        type: 'paragraph',
+        paragraph: { rich_text: [{ type: 'text', text: { content: data.overview } }] },
       },
-      ...data.tldr.map((item) => ({
-        object: 'block',
-        type: 'bulleted_list_item',
-        bulleted_list_item: { rich_text: [{ type: 'text', text: { content: item } }] },
-      })),
       {
         object: 'block',
         type: 'heading_2',
