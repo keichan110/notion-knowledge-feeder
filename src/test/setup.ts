@@ -38,3 +38,8 @@ vi.stubGlobal('ContentService', {
   createTextOutput: vi.fn().mockReturnValue(mockTextOutput),
   MimeType: { JSON: 'application/json' },
 });
+
+vi.stubGlobal('XmlService', {
+  parse: vi.fn(),
+  getNamespace: vi.fn().mockReturnValue({}),
+});

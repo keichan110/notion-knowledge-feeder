@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GeminiResult } from './gemini';
-import { createPendingRecord, queryPendingRecord, updateRecord } from './notion';
+import { createPendingRecord, DuplicateUrlError, queryPendingRecord, updateRecord } from './notion';
 
 const mockGeminiResult: GeminiResult = {
   title: 'テスト記事',
@@ -18,15 +18,20 @@ const mockResponse = (code: number, text = '') => ({
   getContentText: vi.fn().mockReturnValue(text),
 });
 
+const emptyQueryResponse = () => mockResponse(200, JSON.stringify({ results: [] })) as never;
+
+const hitQueryResponse = () =>
+  mockResponse(200, JSON.stringify({ results: [{ id: 'existing-page' }] })) as never;
+
 beforeEach(() => {
   vi.mocked(UrlFetchApp.fetch).mockReset();
 });
 
 describe('createPendingRecord', () => {
   it('POST /v1/pages に正しいエンドポイントでfetchする', () => {
-    vi.mocked(UrlFetchApp.fetch).mockReturnValue(
-      mockResponse(200, JSON.stringify({ id: 'page-123' })) as never
-    );
+    vi.mocked(UrlFetchApp.fetch)
+      .mockReturnValueOnce(emptyQueryResponse())
+      .mockReturnValueOnce(mockResponse(200, JSON.stringify({ id: 'page-123' })) as never);
 
     createPendingRecord('https://example.com', 'db-id', 'notion-key');
 
@@ -37,13 +42,13 @@ describe('createPendingRecord', () => {
   });
 
   it('ステータス「処理中」とURLをペイロードに含める', () => {
-    vi.mocked(UrlFetchApp.fetch).mockReturnValue(
-      mockResponse(200, JSON.stringify({ id: 'page-123' })) as never
-    );
+    vi.mocked(UrlFetchApp.fetch)
+      .mockReturnValueOnce(emptyQueryResponse())
+      .mockReturnValueOnce(mockResponse(200, JSON.stringify({ id: 'page-123' })) as never);
 
     createPendingRecord('https://example.com', 'db-id', 'notion-key');
 
-    const [, options] = vi.mocked(UrlFetchApp.fetch).mock.calls[0];
+    const [, options] = vi.mocked(UrlFetchApp.fetch).mock.calls[1]; // 2番目の呼び出しが作成
     const payload = JSON.parse((options as { payload: string }).payload);
     expect(payload.parent.database_id).toBe('db-id');
     // biome-ignore lint/complexity/useLiteralKeys: 日本語キーはブラケット記法を維持
@@ -51,14 +56,38 @@ describe('createPendingRecord', () => {
     expect(payload.properties.URL.url).toBe('https://example.com');
   });
 
-  it('作成されたページIDを返す', () => {
-    vi.mocked(UrlFetchApp.fetch).mockReturnValue(
-      mockResponse(200, JSON.stringify({ id: 'page-123' })) as never
-    );
+  it('未登録URLの場合はページIDを返す', () => {
+    vi.mocked(UrlFetchApp.fetch)
+      .mockReturnValueOnce(emptyQueryResponse())
+      .mockReturnValueOnce(mockResponse(200, JSON.stringify({ id: 'page-123' })) as never);
 
     const id = createPendingRecord('https://example.com', 'db-id', 'notion-key');
 
     expect(id).toBe('page-123');
+  });
+
+  it('登録済みURLの場合はDuplicateUrlErrorを投げてページを作成しない', () => {
+    vi.mocked(UrlFetchApp.fetch).mockReturnValueOnce(hitQueryResponse());
+
+    expect(() => createPendingRecord('https://example.com', 'db-id', 'notion-key')).toThrow(
+      DuplicateUrlError
+    );
+    expect(UrlFetchApp.fetch).toHaveBeenCalledTimes(1); // 重複チェックのみ、作成なし
+  });
+
+  it('URLフィルタをかけた重複チェッククエリを先に送る', () => {
+    vi.mocked(UrlFetchApp.fetch)
+      .mockReturnValueOnce(emptyQueryResponse())
+      .mockReturnValueOnce(mockResponse(200, JSON.stringify({ id: 'page-123' })) as never);
+
+    createPendingRecord('https://example.com', 'db-id', 'notion-key');
+
+    const [url, options] = vi.mocked(UrlFetchApp.fetch).mock.calls[0];
+    expect(url).toBe('https://api.notion.com/v1/databases/db-id/query');
+    const payload = JSON.parse((options as { payload: string }).payload);
+    expect(payload.filter.property).toBe('URL');
+    expect(payload.filter.url.equals).toBe('https://example.com');
+    expect(payload.page_size).toBe(1);
   });
 
   it('200以外のレスポンスの場合はエラーを投げる', () => {

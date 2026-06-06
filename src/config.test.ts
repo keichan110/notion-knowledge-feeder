@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { clearHasPending, getConfig, hasPending, setHasPending } from './config';
+import { clearHasPending, getConfig, hasPending, resetConfigCache, setHasPending } from './config';
 
 describe('getConfig', () => {
   beforeEach(() => {
+    resetConfigCache();
     vi.mocked(PropertiesService.getScriptProperties().getProperty).mockReset();
   });
 
@@ -27,6 +28,13 @@ describe('getConfig', () => {
       notionAccessToken: 'notion-key',
       notionDbId: 'db-id',
     });
+  });
+
+  it('2回呼び出しても PropertiesService.getProperty は1回分しか呼ばない', () => {
+    getConfig();
+    getConfig();
+
+    expect(PropertiesService.getScriptProperties().getProperty).toHaveBeenCalledTimes(5);
   });
 
   it('プロパティがnullの場合はデフォルト値を使う', () => {

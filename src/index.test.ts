@@ -4,13 +4,15 @@ vi.mock('./config');
 vi.mock('./gemini');
 vi.mock('./jina');
 vi.mock('./notion');
+vi.mock('./trend');
 
 import { clearHasPending, getConfig, hasPending, setHasPending } from './config';
 import type { GeminiResult } from './gemini';
 import { callGeminiAPI } from './gemini';
-import { doPost, processPendingArticles } from './index';
+import { doPost, processPendingArticles, processTrendingQiita, processTrendingZenn } from './index';
 import { fetchArticleContent } from './jina';
-import { createPendingRecord, queryPendingRecord, updateRecord } from './notion';
+import { createPendingRecord, DuplicateUrlError, queryPendingRecord, updateRecord } from './notion';
+import { fetchQiitaTrendUrls, fetchZennTrendUrls } from './trend';
 
 const mockGeminiResult: GeminiResult = {
   title: 'テスト記事',
@@ -37,6 +39,8 @@ beforeEach(() => {
   vi.mocked(fetchArticleContent).mockReturnValue('article text');
   vi.mocked(callGeminiAPI).mockReturnValue(mockGeminiResult);
   vi.mocked(hasPending).mockReturnValue(false);
+  vi.mocked(fetchQiitaTrendUrls).mockReturnValue([]);
+  vi.mocked(fetchZennTrendUrls).mockReturnValue([]);
 });
 
 describe('doPost', () => {
@@ -73,6 +77,19 @@ describe('doPost', () => {
 
     expect(createPendingRecord).toHaveBeenCalledWith('https://example.com', 'db-id', 'notion-key');
     expect(setHasPending).toHaveBeenCalled();
+    expect(ContentService.createTextOutput).toHaveBeenCalledWith(
+      JSON.stringify({ success: true, message: 'accepted' })
+    );
+  });
+
+  it('登録済みURLの場合はHAS_PENDINGをセットせずacceptedを返す', () => {
+    vi.mocked(createPendingRecord).mockImplementation(() => {
+      throw new DuplicateUrlError('https://example.com');
+    });
+
+    doPost(mockEvent({ token: 'valid-token', url: 'https://example.com' }));
+
+    expect(setHasPending).not.toHaveBeenCalled();
     expect(ContentService.createTextOutput).toHaveBeenCalledWith(
       JSON.stringify({ success: true, message: 'accepted' })
     );
@@ -157,5 +174,120 @@ describe('processPendingArticles', () => {
     processPendingArticles();
 
     expect(updateRecord).toHaveBeenCalledWith('page-1', null, 'エラー', 'notion-key');
+  });
+});
+
+describe('processTrendingQiita', () => {
+  it('取得したURLをそれぞれNotionに仮登録する', () => {
+    vi.mocked(fetchQiitaTrendUrls).mockReturnValue([
+      'https://qiita.com/article1',
+      'https://qiita.com/article2',
+    ]);
+
+    processTrendingQiita();
+
+    expect(createPendingRecord).toHaveBeenCalledWith(
+      'https://qiita.com/article1',
+      'db-id',
+      'notion-key'
+    );
+    expect(createPendingRecord).toHaveBeenCalledWith(
+      'https://qiita.com/article2',
+      'db-id',
+      'notion-key'
+    );
+    expect(setHasPending).toHaveBeenCalled();
+  });
+
+  it('URLが0件の場合はNotionに書き込まずHAS_PENDINGもセットしない', () => {
+    vi.mocked(fetchQiitaTrendUrls).mockReturnValue([]);
+
+    processTrendingQiita();
+
+    expect(createPendingRecord).not.toHaveBeenCalled();
+    expect(setHasPending).not.toHaveBeenCalled();
+  });
+
+  it('1件の登録が失敗しても残りのURLは処理する', () => {
+    vi.mocked(fetchQiitaTrendUrls).mockReturnValue([
+      'https://qiita.com/article1',
+      'https://qiita.com/article2',
+    ]);
+    vi.mocked(createPendingRecord)
+      .mockImplementationOnce(() => {
+        throw new Error('notion error');
+      })
+      .mockReturnValueOnce('page-id');
+
+    processTrendingQiita();
+
+    expect(createPendingRecord).toHaveBeenCalledTimes(2);
+    expect(setHasPending).toHaveBeenCalled();
+  });
+
+  it('登録済みURLはスキップして未登録URLのみ登録する', () => {
+    vi.mocked(fetchQiitaTrendUrls).mockReturnValue([
+      'https://qiita.com/article1',
+      'https://qiita.com/article2',
+    ]);
+    vi.mocked(createPendingRecord)
+      .mockImplementationOnce(() => {
+        throw new DuplicateUrlError('https://qiita.com/article1');
+      })
+      .mockReturnValueOnce('page-id');
+
+    processTrendingQiita();
+
+    expect(createPendingRecord).toHaveBeenCalledTimes(2);
+    expect(setHasPending).toHaveBeenCalled();
+  });
+});
+
+describe('processTrendingZenn', () => {
+  it('取得したURLをそれぞれNotionに仮登録する', () => {
+    vi.mocked(fetchZennTrendUrls).mockReturnValue([
+      'https://zenn.dev/article1',
+      'https://zenn.dev/article2',
+    ]);
+
+    processTrendingZenn();
+
+    expect(createPendingRecord).toHaveBeenCalledWith(
+      'https://zenn.dev/article1',
+      'db-id',
+      'notion-key'
+    );
+    expect(createPendingRecord).toHaveBeenCalledWith(
+      'https://zenn.dev/article2',
+      'db-id',
+      'notion-key'
+    );
+    expect(setHasPending).toHaveBeenCalled();
+  });
+
+  it('URLが0件の場合はNotionに書き込まずHAS_PENDINGもセットしない', () => {
+    vi.mocked(fetchZennTrendUrls).mockReturnValue([]);
+
+    processTrendingZenn();
+
+    expect(createPendingRecord).not.toHaveBeenCalled();
+    expect(setHasPending).not.toHaveBeenCalled();
+  });
+
+  it('1件の登録が失敗しても残りのURLは処理する', () => {
+    vi.mocked(fetchZennTrendUrls).mockReturnValue([
+      'https://zenn.dev/article1',
+      'https://zenn.dev/article2',
+    ]);
+    vi.mocked(createPendingRecord)
+      .mockImplementationOnce(() => {
+        throw new Error('notion error');
+      })
+      .mockReturnValueOnce('page-id');
+
+    processTrendingZenn();
+
+    expect(createPendingRecord).toHaveBeenCalledTimes(2);
+    expect(setHasPending).toHaveBeenCalled();
   });
 });
