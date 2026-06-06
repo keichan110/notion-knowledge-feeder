@@ -3,6 +3,7 @@ import { callGeminiAPI, type GeminiResult } from './gemini';
 import { fetchArticleContent } from './jina';
 import { log } from './log';
 import { createPendingRecord, queryPendingRecord, updateRecord } from './notion';
+import { fetchQiitaTrendUrls, fetchZennTrendUrls } from './trend';
 import { createResponse } from './utils';
 
 /**
@@ -30,16 +31,59 @@ export function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Cont
   }
 
   try {
-    createPendingRecord(url, notionDbId, notionAccessToken);
+    registerPendingUrl(url, notionDbId, notionAccessToken);
   } catch (err) {
     log.error('doPost', 'notion write failed', err, { url });
     return createResponse(false, `Notion write failed: ${String(err)}`);
   }
 
   log.info('doPost', 'accepted', { url });
-  setHasPending();
 
   return createResponse(true, 'accepted');
+}
+
+/**
+ * QiitaのトレンドフィードからURLを取得してNotionに仮登録する。
+ * GASタイムトリガー（週次）から呼び出される。
+ */
+export function processTrendingQiita(): void {
+  const { notionDbId, notionAccessToken } = getConfig();
+  const urls = fetchQiitaTrendUrls();
+  log.info('processTrendingQiita', 'start', { count: urls.length });
+
+  let registered = 0;
+  for (const url of urls) {
+    try {
+      registerPendingUrl(url, notionDbId, notionAccessToken);
+      registered++;
+    } catch (err) {
+      log.error('processTrendingQiita', 'register failed', err, { url });
+    }
+  }
+
+  log.info('processTrendingQiita', 'done', { registered });
+}
+
+/**
+ * ZennのトレンドフィードからURLを取得してNotionに仮登録する。
+ * GASタイムトリガー（週次）から呼び出される。
+ */
+export function processTrendingZenn(): void {
+  const { notionDbId, notionAccessToken } = getConfig();
+  const urls = fetchZennTrendUrls();
+  log.info('processTrendingZenn', 'start', { count: urls.length });
+
+  let registered = 0;
+  for (const url of urls) {
+    try {
+      registerPendingUrl(url, notionDbId, notionAccessToken);
+      registered++;
+    } catch (err) {
+      log.error('processTrendingZenn', 'register failed', err, { url });
+    }
+  }
+
+  log.info('processTrendingZenn', 'done', { registered });
 }
 
 /**
@@ -85,4 +129,9 @@ export function processPendingArticles(): void {
   if (!next) {
     clearHasPending();
   }
+}
+
+function registerPendingUrl(url: string, notionDbId: string, notionAccessToken: string): void {
+  createPendingRecord(url, notionDbId, notionAccessToken);
+  setHasPending();
 }
