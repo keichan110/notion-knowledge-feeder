@@ -129,26 +129,6 @@ export function processPendingArticles(): void {
   }
 }
 
-/**
- * ZennトレンドフィードからURL一覧を取得してログに出力する。
- * GASエディタから手動実行してURLが正しく取得できるか確認するためのデバッグ用関数。
- */
-export function testFetchZennUrls(): void {
-  const urls = fetchZennTrendUrls();
-  // TODO(dev-log): 本番運用時に削除
-  log.info('testFetchZennUrls', 'fetched', { count: urls.length, urls });
-}
-
-/**
- * QiitaトレンドフィードからURL一覧を取得してログに出力する。
- * GASエディタから手動実行してURLが正しく取得できるか確認するためのデバッグ用関数。
- */
-export function testFetchQiitaUrls(): void {
-  const urls = fetchQiitaTrendUrls();
-  // TODO(dev-log): 本番運用時に削除
-  log.info('testFetchQiitaUrls', 'fetched', { count: urls.length, urls });
-}
-
 function registerPendingUrl(url: string): void {
   const { notionDbId, notionAccessToken } = getConfig();
   const normalizedUrl = stripQueryString(url);
