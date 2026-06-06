@@ -62,6 +62,33 @@ export function callGeminiAPI(...): GeminiResult { ... }
 
 ---
 
+## エラーハンドリング
+
+- **内部ヘルパー（非 export 関数）**: エラーをキャッチせず、そのまま `throw` する。ロギングも行わない。
+- **公開関数（export 関数）**: 内部ヘルパーが投げたエラーを `catch` し、ログ出力とレスポンス生成の責務を担う。
+- 「エラーではない非正常系」（例: バルク登録での重複スキップ）は公開関数側で `instanceof` により分岐し、適切なログレベル（`warn` など）で記録する。
+
+```ts
+// 内部ヘルパー: throw するだけ、ログなし
+function registerPendingUrl(url: string): void {
+  createPendingRecord(url, dbId, token); // DuplicateUrlError はそのまま伝播
+}
+
+// 公開関数: catch してログ・レスポンスを決定
+export function doPost(e): TextOutput {
+  try {
+    registerPendingUrl(url);
+  } catch (err) {
+    if (err instanceof DuplicateUrlError) {
+      log.error('doPost', 'duplicate', err, { url });
+      return createResponse(false, 'This URL has already been registered');
+    }
+    log.error('doPost', 'notion write failed', err, { url });
+    return createResponse(false, `Notion write failed: ${String(err)}`);
+  }
+}
+```
+
 ## ログ
 
 [`docs/guides/logging-rules.md`](./logging-rules.md) を参照。
