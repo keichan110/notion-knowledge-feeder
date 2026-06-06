@@ -61,11 +61,11 @@ describe('fetchZennTrendUrls', () => {
     expect(fetchZennTrendUrls()).toEqual([]);
   });
 
-  it('取得件数を10件に絞る', () => {
+  it('取得件数を3件に絞る', () => {
     vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockFetchResponse(200, '<rss/>') as never);
-    const urls = Array.from({ length: 15 }, (_, i) => `https://zenn.dev/article${i}`);
+    const urls = Array.from({ length: 10 }, (_, i) => `https://zenn.dev/article${i}`);
     setupXmlServiceRss(urls);
 
-    expect(fetchZennTrendUrls()).toHaveLength(10);
+    expect(fetchZennTrendUrls()).toHaveLength(3);
   });
 });
