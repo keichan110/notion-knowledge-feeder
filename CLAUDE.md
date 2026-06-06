@@ -32,16 +32,39 @@ pnpm exec vitest run src/gemini.test.ts
 
 ## アーキテクチャ
 
+### フェーズ1：URL仮登録
+
 ```
+【手動登録】
 iOSショートカット
     ↓ POST /exec (JSON: {token, url})
 doPost() [index.ts]
+    ↓
+registerPendingUrl() [index.ts]   ← クエリ文字列除去・重複チェック
+    ↓
+createPendingRecord() [notion.ts] ← Notion API にステータス「処理中」で仮登録
+
+【トレンド自動登録】（GASタイムトリガー・週次）
+processTrendingQiita() / processTrendingZenn() [index.ts]
+    ↓
+fetchQiitaTrendUrls() / fetchZennTrendUrls() [trend/]  ← Atom/RSSフィードから上位10件取得
+    ↓
+registerPendingUrl() [index.ts]   ← 各URLを仮登録（重複はスキップ）
+```
+
+### フェーズ2：記事処理
+
+```
+（GASタイムトリガー・10分間隔）
+processPendingArticles() [index.ts]
+    ↓ HAS_PENDINGフラグ確認（なければ即終了）
+queryPendingRecord() [notion.ts]  ← ステータス「処理中」のレコードを1件取得
     ↓
 fetchArticleContent() [jina.ts]   ← https://r.jina.ai/{url} で本文取得
     ↓
 callGeminiAPI() [gemini.ts]       ← Gemini API で要約・構造化（GeminiResult型）
     ↓
-writeToNotion() [notion.ts]       ← Notion API v2022-06-28 でページ作成
+updateRecord() [notion.ts]        ← Notion API でレコードをステータス「完了」に更新
 ```
 
 ### 重要な設計上の制約
@@ -62,3 +85,6 @@ writeToNotion() [notion.ts]       ← Notion API v2022-06-28 でページ作成
 | `src/gemini.ts` | Gemini APIで記事を要約・構造化し `GeminiResult` を返す |
 | `src/notion.ts` | `GeminiResult` をNotionページとして書き込む |
 | `src/utils.ts` | `createResponse()`（GASレスポンス生成） |
+| `src/trend/index.ts` | トレンドモジュールの再エクスポート |
+| `src/trend/qiita.ts` | Qiita人気記事AtomフィードからトレンドURLリストを取得（上位10件） |
+| `src/trend/zenn.ts` | ZennトレンドRSSフィードからトレンドURLリストを取得（上位10件） |

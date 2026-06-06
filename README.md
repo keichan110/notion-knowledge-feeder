@@ -106,7 +106,11 @@ notion-knowledge-feeder/
 │   ├── jina.ts               # Jina AI Reader による記事本文取得
 │   ├── gemini.ts             # Gemini API による要約・構造化
 │   ├── notion.ts             # Notion API へのレコード書き込み
-│   └── utils.ts              # 日付・週番号・レスポンス生成ユーティリティ
+│   ├── utils.ts              # 日付・週番号・レスポンス生成ユーティリティ
+│   └── trend/
+│       ├── index.ts          # トレンドモジュールの再エクスポート
+│       ├── qiita.ts          # Qiita 人気記事フィードからトレンドURL取得
+│       └── zenn.ts           # Zenn トレンドRSSフィードからトレンドURL取得
 ├── dist/                     # ビルド出力（clasp pushの対象、git管理外）
 ├── .github/
 │   └── workflows/

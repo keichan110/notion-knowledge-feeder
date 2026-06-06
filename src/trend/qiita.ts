@@ -2,6 +2,7 @@ import { log } from '../log';
 
 const QIITA_FEED_URL = 'https://qiita.com/popular-items/feed.atom';
 const ATOM_NS_URI = 'http://www.w3.org/2005/Atom';
+const QIITA_TREND_LIMIT = 10;
 
 /**
  * Qiitaの人気記事AtomフィードからトレンドURLリストを取得する。
@@ -38,7 +39,7 @@ export function fetchQiitaTrendUrls(): string[] {
         }
       }
     }
-    return urls;
+    return urls.slice(0, QIITA_TREND_LIMIT);
   } catch (err) {
     log.error('fetchQiitaTrendUrls', 'parse failed', err);
     return [];

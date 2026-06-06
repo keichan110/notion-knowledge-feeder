@@ -92,4 +92,12 @@ describe('fetchQiitaTrendUrls', () => {
 
     expect(fetchQiitaTrendUrls()).toEqual([]);
   });
+
+  it('取得件数を10件に絞る', () => {
+    vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockFetchResponse(200, '<feed/>') as never);
+    const urls = Array.from({ length: 15 }, (_, i) => `https://qiita.com/article${i}`);
+    setupXmlServiceAtom(urls);
+
+    expect(fetchQiitaTrendUrls()).toHaveLength(10);
+  });
 });

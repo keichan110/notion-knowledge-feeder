@@ -1,6 +1,7 @@
 import { log } from '../log';
 
 const ZENN_FEED_URL = 'https://zenn.dev/feed';
+const ZENN_TREND_LIMIT = 10;
 
 /**
  * ZennのトレンドRSSフィードからトレンドURLリストを取得する。
@@ -25,7 +26,10 @@ export function fetchZennTrendUrls(): string[] {
     const doc = XmlService.parse(xml);
     const channel = doc.getRootElement().getChild('channel');
     const items = channel?.getChildren('item') ?? [];
-    return items.map((item) => item.getChildText('link') ?? '').filter(Boolean);
+    return items
+      .map((item) => item.getChildText('link') ?? '')
+      .filter(Boolean)
+      .slice(0, ZENN_TREND_LIMIT);
   } catch (err) {
     log.error('fetchZennTrendUrls', 'parse failed', err);
     return [];
