@@ -12,7 +12,7 @@ import { createResponse } from './utils';
  * @returns 処理結果を含むJSONレスポンス
  */
 export function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.TextOutput {
-  const { secretToken, notionDbId, notionAccessToken } = getConfig();
+  const { secretToken } = getConfig();
 
   let body: { token?: string; url?: string };
   try {
@@ -31,7 +31,7 @@ export function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Cont
   }
 
   try {
-    registerPendingUrl(url, notionDbId, notionAccessToken);
+    registerPendingUrl(url);
   } catch (err) {
     log.error('doPost', 'notion write failed', err, { url });
     return createResponse(false, `Notion write failed: ${String(err)}`);
@@ -47,14 +47,13 @@ export function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Cont
  * GASタイムトリガー（週次）から呼び出される。
  */
 export function processTrendingQiita(): void {
-  const { notionDbId, notionAccessToken } = getConfig();
   const urls = fetchQiitaTrendUrls();
   log.info('processTrendingQiita', 'start', { count: urls.length });
 
   let registered = 0;
   for (const url of urls) {
     try {
-      registerPendingUrl(url, notionDbId, notionAccessToken);
+      registerPendingUrl(url);
       registered++;
     } catch (err) {
       log.error('processTrendingQiita', 'register failed', err, { url });
@@ -69,14 +68,13 @@ export function processTrendingQiita(): void {
  * GASタイムトリガー（週次）から呼び出される。
  */
 export function processTrendingZenn(): void {
-  const { notionDbId, notionAccessToken } = getConfig();
   const urls = fetchZennTrendUrls();
   log.info('processTrendingZenn', 'start', { count: urls.length });
 
   let registered = 0;
   for (const url of urls) {
     try {
-      registerPendingUrl(url, notionDbId, notionAccessToken);
+      registerPendingUrl(url);
       registered++;
     } catch (err) {
       log.error('processTrendingZenn', 'register failed', err, { url });
@@ -131,7 +129,8 @@ export function processPendingArticles(): void {
   }
 }
 
-function registerPendingUrl(url: string, notionDbId: string, notionAccessToken: string): void {
+function registerPendingUrl(url: string): void {
+  const { notionDbId, notionAccessToken } = getConfig();
   createPendingRecord(url, notionDbId, notionAccessToken);
   setHasPending();
 }
