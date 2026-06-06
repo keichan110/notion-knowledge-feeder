@@ -51,7 +51,13 @@ export function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Cont
  * GASタイムトリガー（日次）から呼び出される。
  */
 export function processTrendingQiita(): void {
-  const urls = fetchQiitaTrendUrls();
+  let urls: string[];
+  try {
+    urls = fetchQiitaTrendUrls();
+  } catch (err) {
+    log.error('processTrendingQiita', 'fetch failed', err);
+    return;
+  }
   log.info('processTrendingQiita', 'start', { count: urls.length });
 
   let registered = 0;
@@ -77,7 +83,13 @@ export function processTrendingQiita(): void {
  * GASタイムトリガー（日次）から呼び出される。
  */
 export function processTrendingZenn(): void {
-  const urls = fetchZennTrendUrls();
+  let urls: string[];
+  try {
+    urls = fetchZennTrendUrls();
+  } catch (err) {
+    log.error('processTrendingZenn', 'fetch failed', err);
+    return;
+  }
   log.info('processTrendingZenn', 'start', { count: urls.length });
 
   let registered = 0;
@@ -119,7 +131,6 @@ export function processPendingArticles(): void {
   let step = 'fetch';
   try {
     const articleText = fetchArticleContent(pending.url);
-    if (!articleText) throw new Error('Failed to fetch article');
 
     step = 'gemini';
     const geminiResult: GeminiResult = callGeminiAPI(articleText, geminiModel, geminiApiKey);

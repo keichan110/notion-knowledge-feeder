@@ -23,17 +23,15 @@
 | `doPost` | URL 受付成功 | INFO | `url` |
 | `doPost` | 重複 URL | ERROR | `err`, `url` |
 | `doPost` | Notion 書き込み失敗 | ERROR | `err`, `url` |
+| `processTrendingQiita` | フィード取得失敗 | ERROR | `err` |
 | `processTrendingQiita` | 重複 URL スキップ | WARN | `url`（バルク登録では重複が想定されるためエラーではない） |
 | `processTrendingQiita` | 登録失敗 | ERROR | `err`, `url` |
+| `processTrendingZenn` | フィード取得失敗 | ERROR | `err` |
 | `processTrendingZenn` | 重複 URL スキップ | WARN | `url`（バルク登録では重複が想定されるためエラーではない） |
 | `processTrendingZenn` | 登録失敗 | ERROR | `err`, `url` |
 | `processPendingArticles` | 処理開始 | INFO | `pageId`, `url` |
 | `processPendingArticles` | 処理完了 | INFO | `pageId` |
 | `processPendingArticles` | 失敗 | ERROR | ステップ名（`fetch`/`gemini`/`notion`）, `err`, `pageId`, `url` |
-| `fetchArticleContent` | 非 200 レスポンス | ERROR | `status`, `url` |
-| `fetchArticleContent` | 例外発生 | ERROR | `err`, `url` |
-| `callGeminiAPI` | 非 200 レスポンス | ERROR | `status`, `model` |
-| `callGeminiAPI` | JSON パース失敗 | ERROR | レスポンス先頭 200 文字（`preview`） |
 
 ## 開発用ログ（本番運用前に削除）
 

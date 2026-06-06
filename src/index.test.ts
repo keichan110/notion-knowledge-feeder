@@ -171,7 +171,9 @@ describe('processPendingArticles', () => {
   it('記事取得に失敗した場合はエラーステータスに更新する', () => {
     vi.mocked(hasPending).mockReturnValue(true);
     vi.mocked(queryPendingRecord).mockReturnValue({ id: 'page-1', url: 'https://example.com' });
-    vi.mocked(fetchArticleContent).mockReturnValue('');
+    vi.mocked(fetchArticleContent).mockImplementation(() => {
+      throw new Error('fetch failed');
+    });
 
     processPendingArticles();
 
@@ -193,6 +195,16 @@ describe('processPendingArticles', () => {
 });
 
 describe('processTrendingQiita', () => {
+  it('フィード取得に失敗した場合は何もしない', () => {
+    vi.mocked(fetchQiitaTrendUrls).mockImplementation(() => {
+      throw new Error('fetch failed');
+    });
+
+    processTrendingQiita();
+
+    expect(createPendingRecord).not.toHaveBeenCalled();
+  });
+
   it('取得したURLをそれぞれNotionに仮登録する', () => {
     vi.mocked(fetchQiitaTrendUrls).mockReturnValue([
       'https://qiita.com/article1',
@@ -259,6 +271,16 @@ describe('processTrendingQiita', () => {
 });
 
 describe('processTrendingZenn', () => {
+  it('フィード取得に失敗した場合は何もしない', () => {
+    vi.mocked(fetchZennTrendUrls).mockImplementation(() => {
+      throw new Error('fetch failed');
+    });
+
+    processTrendingZenn();
+
+    expect(createPendingRecord).not.toHaveBeenCalled();
+  });
+
   it('取得したURLをそれぞれNotionに仮登録する', () => {
     vi.mocked(fetchZennTrendUrls).mockReturnValue([
       'https://zenn.dev/article1',

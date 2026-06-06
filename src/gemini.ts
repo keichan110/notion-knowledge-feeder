@@ -1,5 +1,3 @@
-import { log } from './log';
-
 export type GeminiModel =
   | 'gemini-3.5-flash'
   | 'gemini-3.1-pro-preview'
@@ -51,7 +49,6 @@ export function callGeminiAPI(
 
   const status = response.getResponseCode();
   if (status !== 200) {
-    log.error('callGeminiAPI', 'non-200 response', undefined, { status, model: geminiModel });
     throw new Error(`Gemini API error: HTTP ${status}`);
   }
 
@@ -62,19 +59,10 @@ export function callGeminiAPI(
 
   const match = text.match(/{[\s\S]*}/);
   if (!match) {
-    log.error('callGeminiAPI', 'invalid JSON from Gemini', undefined, {
-      preview: text.slice(0, 200),
-    });
     throw new Error('Gemini returned invalid JSON');
   }
 
-  const parsed = JSON.parse(match[0]) as GeminiResult;
-  // TODO(dev-log): 本番運用時に削除
-  log.info('callGeminiAPI', 'success', {
-    model: geminiModel,
-    title: parsed.title,
-  });
-  return parsed;
+  return JSON.parse(match[0]) as GeminiResult;
 }
 
 const PROMPT_TEMPLATE = (
