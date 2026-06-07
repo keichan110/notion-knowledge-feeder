@@ -24,18 +24,18 @@ describe('fetchArticleContent', () => {
     );
   });
 
-  it('200以外のレスポンスコードの場合は空文字を返す', () => {
+  it('200以外のレスポンスコードの場合はthrowする', () => {
     vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockResponse(404, 'Not Found') as never);
 
-    expect(fetchArticleContent('https://example.com')).toBe('');
+    expect(() => fetchArticleContent('https://example.com')).toThrow();
   });
 
-  it('fetchが例外を投げた場合は空文字を返す', () => {
+  it('fetchが例外を投げた場合はthrowする', () => {
     vi.mocked(UrlFetchApp.fetch).mockImplementation(() => {
       throw new Error('network error');
     });
 
-    expect(fetchArticleContent('https://example.com')).toBe('');
+    expect(() => fetchArticleContent('https://example.com')).toThrow('network error');
   });
 });
 
@@ -48,10 +48,10 @@ describe('fetchArticleContent 429リトライ', () => {
     expect(fetchArticleContent('https://example.com')).toBe('article content');
   });
 
-  it('429が3回続いたら空文字を返す', () => {
+  it('429が3回続いたらthrowする', () => {
     vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockResponse(429, '') as never);
 
-    expect(fetchArticleContent('https://example.com')).toBe('');
+    expect(() => fetchArticleContent('https://example.com')).toThrow();
   });
 
   it('429リトライ時にUtilities.sleepが呼ばれる', () => {
@@ -67,7 +67,7 @@ describe('fetchArticleContent 429リトライ', () => {
   it('指数バックオフで待機時間が倍増する', () => {
     vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockResponse(429, '') as never);
 
-    fetchArticleContent('https://example.com');
+    expect(() => fetchArticleContent('https://example.com')).toThrow();
 
     expect(Utilities.sleep).toHaveBeenNthCalledWith(1, 1000);
     expect(Utilities.sleep).toHaveBeenNthCalledWith(2, 2000);
@@ -77,7 +77,7 @@ describe('fetchArticleContent 429リトライ', () => {
   it('429以外のエラーはリトライせず1回で終了する', () => {
     vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockResponse(500, '') as never);
 
-    fetchArticleContent('https://example.com');
+    expect(() => fetchArticleContent('https://example.com')).toThrow();
 
     expect(UrlFetchApp.fetch).toHaveBeenCalledTimes(1);
   });

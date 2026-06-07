@@ -1,4 +1,26 @@
-import { log } from './log';
+const PROMPT_TEMPLATE = (
+  articleText: string
+) => `あなたはITエンジニア向けのナレッジキュレーターです。
+以下の記事本文を分析し、JSONのみを返してください。前置きやコードブロック記号は不要です。
+
+記事本文:
+${articleText}
+
+以下のJSON形式で返してください:
+{
+  "title": "記事タイトル（元タイトルが適切なら流用）",
+  "overview": "この記事が何についての記事かを1文で説明する。事実のみを記述し、重要性・価値の判断・推測は含めないこと",
+  "summary": [
+    {
+      "heading": "<記事の章立てや話題の流れに沿った見出し>",
+      "body": "その節の内容を詳述する。手順がある場合は全ステップを省略せず列挙し、数値・ベンチマーク・具体的な設定値があれば必ず含める。理由や背景が記事に書かれている場合は省略しない。文量は情報の網羅性を優先し、文字数制限は設けない。箇条書き（「・」区切り）を使ってもよい"
+    }
+  ],
+  "category": "AI/ML、開発、インフラ、セキュリティ、ビジネス、ツール、マネジメント、自己啓発、その他 のいずれか1つ",
+  "tags": ["固有名詞・技術名を優先した3〜5個のキーワード"]
+}
+
+summaryのセクション数は記事の内容に応じて自由に決めること。記事の章立て・話題の展開に忠実に従い、重要な情報を省略しないこと。`;
 
 export type GeminiModel =
   | 'gemini-3.5-flash'
@@ -51,7 +73,6 @@ export function callGeminiAPI(
 
   const status = response.getResponseCode();
   if (status !== 200) {
-    log.error('callGeminiAPI', 'non-200 response', undefined, { status, model: geminiModel });
     throw new Error(`Gemini API error: HTTP ${status}`);
   }
 
@@ -62,41 +83,8 @@ export function callGeminiAPI(
 
   const match = text.match(/{[\s\S]*}/);
   if (!match) {
-    log.error('callGeminiAPI', 'invalid JSON from Gemini', undefined, {
-      preview: text.slice(0, 200),
-    });
     throw new Error('Gemini returned invalid JSON');
   }
 
-  const parsed = JSON.parse(match[0]) as GeminiResult;
-  // TODO(dev-log): 本番運用時に削除
-  log.info('callGeminiAPI', 'success', {
-    model: geminiModel,
-    title: parsed.title,
-  });
-  return parsed;
+  return JSON.parse(match[0]) as GeminiResult;
 }
-
-const PROMPT_TEMPLATE = (
-  articleText: string
-) => `あなたはITエンジニア向けのナレッジキュレーターです。
-以下の記事本文を分析し、JSONのみを返してください。前置きやコードブロック記号は不要です。
-
-記事本文:
-${articleText}
-
-以下のJSON形式で返してください:
-{
-  "title": "記事タイトル（元タイトルが適切なら流用）",
-  "overview": "この記事が何についての記事かを1文で説明する。事実のみを記述し、重要性・価値の判断・推測は含めないこと",
-  "summary": [
-    {
-      "heading": "<記事の章立てや話題の流れに沿った見出し>",
-      "body": "その節の内容を詳述する。手順がある場合は全ステップを省略せず列挙し、数値・ベンチマーク・具体的な設定値があれば必ず含める。理由や背景が記事に書かれている場合は省略しない。文量は情報の網羅性を優先し、文字数制限は設けない。箇条書き（「・」区切り）を使ってもよい"
-    }
-  ],
-  "category": "AI/ML、開発、インフラ、セキュリティ、ビジネス、ツール、マネジメント、自己啓発、その他 のいずれか1つ",
-  "tags": ["固有名詞・技術名を優先した3〜5個のキーワード"]
-}
-
-summaryのセクション数は記事の内容に応じて自由に決めること。記事の章立て・話題の展開に忠実に従い、重要な情報を省略しないこと。`;

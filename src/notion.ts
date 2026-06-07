@@ -1,5 +1,7 @@
 import type { GeminiResult } from './gemini';
 
+const NOTION_API_BASE = 'https://api.notion.com/v1';
+
 export type NotionDbId = string;
 export type NotionConnectAccessToken = string;
 
@@ -12,8 +14,6 @@ export class DuplicateUrlError extends Error {
     this.name = 'DuplicateUrlError';
   }
 }
-
-const NOTION_API_BASE = 'https://api.notion.com/v1';
 
 /**
  * URLとステータス「処理中」でNotionにレコードを仮登録する。

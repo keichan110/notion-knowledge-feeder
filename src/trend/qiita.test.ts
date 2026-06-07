@@ -70,27 +70,27 @@ describe('fetchQiitaTrendUrls', () => {
     expect(fetchQiitaTrendUrls()).toEqual([]);
   });
 
-  it('200以外のレスポンスコードの場合は空配列を返す', () => {
+  it('200以外のレスポンスコードの場合はthrowする', () => {
     vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockFetchResponse(404, 'Not Found') as never);
 
-    expect(fetchQiitaTrendUrls()).toEqual([]);
+    expect(() => fetchQiitaTrendUrls()).toThrow();
   });
 
-  it('fetchが例外を投げた場合は空配列を返す', () => {
+  it('fetchが例外を投げた場合はthrowする', () => {
     vi.mocked(UrlFetchApp.fetch).mockImplementation(() => {
       throw new Error('network error');
     });
 
-    expect(fetchQiitaTrendUrls()).toEqual([]);
+    expect(() => fetchQiitaTrendUrls()).toThrow('network error');
   });
 
-  it('XMLパースが失敗した場合は空配列を返す', () => {
+  it('XMLパースが失敗した場合はthrowする', () => {
     vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockFetchResponse(200, 'invalid xml') as never);
     vi.mocked(XmlService.parse).mockImplementation(() => {
       throw new Error('parse error');
     });
 
-    expect(fetchQiitaTrendUrls()).toEqual([]);
+    expect(() => fetchQiitaTrendUrls()).toThrow('parse error');
   });
 
   it('取得件数を3件に絞る', () => {

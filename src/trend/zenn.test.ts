@@ -38,27 +38,27 @@ describe('fetchZennTrendUrls', () => {
     expect(fetchZennTrendUrls()).toEqual(['https://zenn.dev/article1']);
   });
 
-  it('200以外のレスポンスコードの場合は空配列を返す', () => {
+  it('200以外のレスポンスコードの場合はthrowする', () => {
     vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockFetchResponse(500, 'error') as never);
 
-    expect(fetchZennTrendUrls()).toEqual([]);
+    expect(() => fetchZennTrendUrls()).toThrow();
   });
 
-  it('fetchが例外を投げた場合は空配列を返す', () => {
+  it('fetchが例外を投げた場合はthrowする', () => {
     vi.mocked(UrlFetchApp.fetch).mockImplementation(() => {
       throw new Error('network error');
     });
 
-    expect(fetchZennTrendUrls()).toEqual([]);
+    expect(() => fetchZennTrendUrls()).toThrow('network error');
   });
 
-  it('XMLパースが失敗した場合は空配列を返す', () => {
+  it('XMLパースが失敗した場合はthrowする', () => {
     vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockFetchResponse(200, 'invalid xml') as never);
     vi.mocked(XmlService.parse).mockImplementation(() => {
       throw new Error('parse error');
     });
 
-    expect(fetchZennTrendUrls()).toEqual([]);
+    expect(() => fetchZennTrendUrls()).toThrow('parse error');
   });
 
   it('取得件数を3件に絞る', () => {

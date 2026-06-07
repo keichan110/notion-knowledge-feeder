@@ -33,6 +33,10 @@ export function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Cont
   try {
     registerPendingUrl(url);
   } catch (err) {
+    if (err instanceof DuplicateUrlError) {
+      log.error('doPost', 'duplicate', err, { url });
+      return createResponse(false, 'This URL has already been registered');
+    }
     log.error('doPost', 'notion write failed', err, { url });
     return createResponse(false, `Notion write failed: ${String(err)}`);
   }
@@ -47,7 +51,13 @@ export function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Cont
  * GASタイムトリガー（日次）から呼び出される。
  */
 export function processTrendingQiita(): void {
-  const urls = fetchQiitaTrendUrls();
+  let urls: string[];
+  try {
+    urls = fetchQiitaTrendUrls();
+  } catch (err) {
+    log.error('processTrendingQiita', 'fetch failed', err);
+    return;
+  }
   log.info('processTrendingQiita', 'start', { count: urls.length });
 
   let registered = 0;
@@ -56,7 +66,12 @@ export function processTrendingQiita(): void {
       registerPendingUrl(url);
       registered++;
     } catch (err) {
-      log.error('processTrendingQiita', 'register failed', err, { url });
+      if (err instanceof DuplicateUrlError) {
+        // バルク登録では同一URLが既登録である可能性が高いため、重複はエラーではなくwarnとして記録する
+        log.warn('processTrendingQiita', 'skip duplicate', { url });
+      } else {
+        log.error('processTrendingQiita', 'register failed', err, { url });
+      }
     }
   }
 
@@ -68,7 +83,13 @@ export function processTrendingQiita(): void {
  * GASタイムトリガー（日次）から呼び出される。
  */
 export function processTrendingZenn(): void {
-  const urls = fetchZennTrendUrls();
+  let urls: string[];
+  try {
+    urls = fetchZennTrendUrls();
+  } catch (err) {
+    log.error('processTrendingZenn', 'fetch failed', err);
+    return;
+  }
   log.info('processTrendingZenn', 'start', { count: urls.length });
 
   let registered = 0;
@@ -77,7 +98,12 @@ export function processTrendingZenn(): void {
       registerPendingUrl(url);
       registered++;
     } catch (err) {
-      log.error('processTrendingZenn', 'register failed', err, { url });
+      if (err instanceof DuplicateUrlError) {
+        // バルク登録では同一URLが既登録である可能性が高いため、重複はエラーではなくwarnとして記録する
+        log.warn('processTrendingZenn', 'skip duplicate', { url });
+      } else {
+        log.error('processTrendingZenn', 'register failed', err, { url });
+      }
     }
   }
 
@@ -105,7 +131,6 @@ export function processPendingArticles(): void {
   let step = 'fetch';
   try {
     const articleText = fetchArticleContent(pending.url);
-    if (!articleText) throw new Error('Failed to fetch article');
 
     step = 'gemini';
     const geminiResult: GeminiResult = callGeminiAPI(articleText, geminiModel, geminiApiKey);
@@ -117,7 +142,13 @@ export function processPendingArticles(): void {
       pageId: pending.id,
       url: pending.url,
     });
-    updateRecord(pending.id, null, 'エラー', notionAccessToken);
+    try {
+      updateRecord(pending.id, null, 'エラー', notionAccessToken);
+    } catch (updateErr) {
+      log.error('processPendingArticles', 'failed to update error status', updateErr, {
+        pageId: pending.id,
+      });
+    }
     return;
   }
 
@@ -132,14 +163,6 @@ export function processPendingArticles(): void {
 function registerPendingUrl(url: string): void {
   const { notionDbId, notionAccessToken } = getConfig();
   const normalizedUrl = stripQueryString(url);
-  try {
-    createPendingRecord(normalizedUrl, notionDbId, notionAccessToken);
-  } catch (err) {
-    if (err instanceof DuplicateUrlError) {
-      log.info('registerPendingUrl', 'skip duplicate', { url: normalizedUrl });
-      return;
-    }
-    throw err;
-  }
+  createPendingRecord(normalizedUrl, notionDbId, notionAccessToken);
   setHasPending();
 }
