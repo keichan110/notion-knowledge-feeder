@@ -78,6 +78,65 @@ describe('callGeminiAPI', () => {
     expect(promptText).toContain('分割');
   });
 
+  it('503エラー時にリトライして成功する', () => {
+    const responseText = JSON.stringify({
+      candidates: [{ content: { parts: [{ text: JSON.stringify(validResult) }] } }],
+    });
+    vi.mocked(UrlFetchApp.fetch)
+      .mockReturnValueOnce(mockResponse(503, '') as never)
+      .mockReturnValueOnce(mockResponse(200, responseText) as never);
+
+    const result = callGeminiAPI('記事本文', 'gemini-2.5-flash', 'api-key');
+
+    expect(result).toEqual(validResult);
+    expect(UrlFetchApp.fetch).toHaveBeenCalledTimes(2);
+    expect(Utilities.sleep).toHaveBeenCalledTimes(1);
+    expect(Utilities.sleep).toHaveBeenCalledWith(1000);
+  });
+
+  it('503エラーが最大リトライ回数を超えた場合はエラーを投げる', () => {
+    vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockResponse(503, '') as never);
+
+    expect(() => callGeminiAPI('記事本文', 'gemini-2.5-flash', 'api-key')).toThrow(
+      'Gemini API error: HTTP 503'
+    );
+    expect(UrlFetchApp.fetch).toHaveBeenCalledTimes(4);
+  });
+
+  it('503リトライの待機時間が指数バックオフになっている', () => {
+    vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockResponse(503, '') as never);
+
+    expect(() => callGeminiAPI('記事本文', 'gemini-2.5-flash', 'api-key')).toThrow();
+    expect(Utilities.sleep).toHaveBeenCalledTimes(3);
+    expect(Utilities.sleep).toHaveBeenNthCalledWith(1, 1000);
+    expect(Utilities.sleep).toHaveBeenNthCalledWith(2, 2000);
+    expect(Utilities.sleep).toHaveBeenNthCalledWith(3, 4000);
+  });
+
+  it('429エラー時にリトライして成功する', () => {
+    const responseText = JSON.stringify({
+      candidates: [{ content: { parts: [{ text: JSON.stringify(validResult) }] } }],
+    });
+    vi.mocked(UrlFetchApp.fetch)
+      .mockReturnValueOnce(mockResponse(429, '') as never)
+      .mockReturnValueOnce(mockResponse(200, responseText) as never);
+
+    const result = callGeminiAPI('記事本文', 'gemini-2.5-flash', 'api-key');
+
+    expect(result).toEqual(validResult);
+    expect(UrlFetchApp.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('400エラー時はリトライせず即座にエラーを投げる', () => {
+    vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockResponse(400, '') as never);
+
+    expect(() => callGeminiAPI('記事本文', 'gemini-2.5-flash', 'api-key')).toThrow(
+      'Gemini API error: HTTP 400'
+    );
+    expect(UrlFetchApp.fetch).toHaveBeenCalledTimes(1);
+    expect(Utilities.sleep).not.toHaveBeenCalled();
+  });
+
   it('レスポンスJSONの中にJSONブロックが埋め込まれていても抽出できる', () => {
     const embeddedText = `以下の結果です：\n${JSON.stringify(validResult)}\n以上です。`;
     const responseText = JSON.stringify({

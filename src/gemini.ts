@@ -1,3 +1,7 @@
+const MAX_RETRIES = 3;
+const INITIAL_BACKOFF_MS = 1000;
+const RETRYABLE_STATUSES = [429, 503];
+
 const PROMPT_TEMPLATE = (
   articleText: string
 ) => `あなたはITエンジニア向けのナレッジキュレーターです。
@@ -46,11 +50,12 @@ export type GeminiResult = {
 
 /**
  * Gemini APIに記事本文を送信し、要約・構造化した結果を返す。
+ * 429・503エラーは指数バックオフで最大3回リトライする。
  * @param articleText 要約対象の記事本文
  * @param geminiModel 使用するGeminiモデル名
  * @param geminiApiKey Gemini APIキー
  * @returns 要約・構造化された `GeminiResult`
- * @throws Gemini APIが有効なJSONを返さない場合
+ * @throws Gemini APIが有効なJSONを返さない場合、またはリトライ上限を超えた場合
  */
 export function callGeminiAPI(
   articleText: string,
@@ -64,27 +69,41 @@ export function callGeminiAPI(
     generationConfig: { temperature: 0.3 },
   };
 
-  const response = UrlFetchApp.fetch(endpoint, {
-    method: 'post',
+  const options = {
+    method: 'post' as const,
     contentType: 'application/json',
     payload: JSON.stringify(payload),
     muteHttpExceptions: true,
-  });
+  };
 
-  const status = response.getResponseCode();
-  if (status !== 200) {
+  let backoffMs = INITIAL_BACKOFF_MS;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const response = UrlFetchApp.fetch(endpoint, options);
+    const status = response.getResponseCode();
+
+    if (status === 200) {
+      const result = JSON.parse(response.getContentText()) as {
+        candidates?: { content?: { parts?: { text?: string }[] } }[];
+      };
+      const text = result.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+
+      const match = text.match(/{[\s\S]*}/);
+      if (!match) {
+        throw new Error('Gemini returned invalid JSON');
+      }
+
+      return JSON.parse(match[0]) as GeminiResult;
+    }
+
+    if (RETRYABLE_STATUSES.includes(status) && attempt < MAX_RETRIES) {
+      Utilities.sleep(backoffMs);
+      backoffMs *= 2;
+      continue;
+    }
+
     throw new Error(`Gemini API error: HTTP ${status}`);
   }
 
-  const result = JSON.parse(response.getContentText()) as {
-    candidates?: { content?: { parts?: { text?: string }[] } }[];
-  };
-  const text = result.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-
-  const match = text.match(/{[\s\S]*}/);
-  if (!match) {
-    throw new Error('Gemini returned invalid JSON');
-  }
-
-  return JSON.parse(match[0]) as GeminiResult;
+  throw new Error('Gemini API error: max retries exceeded');
 }
