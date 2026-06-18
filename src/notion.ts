@@ -39,6 +39,8 @@ export function createPendingRecord(
         URL: { url },
         // biome-ignore lint/complexity/useLiteralKeys: 日本語キーはブラケット記法を維持
         ['ステータス']: { select: { name: '処理待ち' } },
+        // biome-ignore lint/complexity/useLiteralKeys: 日本語キーはブラケット記法を維持
+        ['リトライ回数']: { number: 0 },
       },
     })
   );
