@@ -17,7 +17,7 @@ export class DuplicateUrlError extends Error {
 }
 
 /**
- * URLとステータス「処理中」でNotionにレコードを仮登録する。
+ * URLとステータス「処理待ち」でNotionにレコードを仮登録する。
  * @param url 保存対象の記事URL
  * @param notionDbId 保存先NotionデータベースID
  * @param notionAccessToken Notion APIアクセストークン
@@ -38,7 +38,7 @@ export function createPendingRecord(
       properties: {
         URL: { url },
         // biome-ignore lint/complexity/useLiteralKeys: 日本語キーはブラケット記法を維持
-        ['ステータス']: { select: { name: '処理中' } },
+        ['ステータス']: { select: { name: '処理待ち' } },
       },
     })
   );
@@ -48,7 +48,7 @@ export function createPendingRecord(
 }
 
 /**
- * ステータスが「処理中」のレコードをリトライ回数昇順・作成日昇順で1件取得する。
+ * ステータスが「処理待ち」のレコードをリトライ回数昇順・作成日昇順で1件取得する。
  * @param notionDbId 検索対象のNotionデータベースID
  * @param notionAccessToken Notion APIアクセストークン
  * @returns ページID・URL・リトライ回数のオブジェクト。該当レコードがなければ `null`
@@ -62,7 +62,7 @@ export function queryPendingRecord(
     notionFetchOptions('post', notionAccessToken, {
       filter: {
         property: 'ステータス',
-        select: { equals: '処理中' },
+        select: { equals: '処理待ち' },
       },
       sorts: [
         { property: 'リトライ回数', direction: 'ascending' },
@@ -97,7 +97,7 @@ export function queryPendingRecord(
 }
 
 /**
- * 処理中レコードのリトライ回数を1加算する。ステータスは変更しない。
+ * 処理待ちレコードのリトライ回数を1加算する。ステータスは変更しない。
  * @param pageId 更新対象のNotionページID
  * @param currentRetryCount 現在のリトライ回数
  * @param notionAccessToken Notion APIアクセストークン

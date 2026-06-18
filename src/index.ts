@@ -119,7 +119,7 @@ export function processTrendingZenn(): void {
 }
 
 /**
- * ステータスが「処理中」のNotionレコードを1件取得し、Jina・Geminiで処理してNotionを更新する。
+ * ステータスが「処理待ち」のNotionレコードを1件取得し、Jina・Geminiで処理してNotionを更新する。
  * 10分間隔のGASタイムトリガーから呼び出される。
  * `HAS_PENDING` フラグがない場合はNotion APIを呼び出さずに即座に終了する。
  */

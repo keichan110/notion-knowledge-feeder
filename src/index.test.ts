@@ -139,7 +139,7 @@ describe('processPendingArticles', () => {
     expect(queryPendingRecord).not.toHaveBeenCalled();
   });
 
-  it('HAS_PENDINGがあるが処理中レコードがない場合はフラグを削除する', () => {
+  it('HAS_PENDINGがあるが処理待ちレコードがない場合はフラグを削除する', () => {
     vi.mocked(hasPending).mockReturnValue(true);
     vi.mocked(queryPendingRecord).mockReturnValue(null);
 
@@ -149,7 +149,7 @@ describe('processPendingArticles', () => {
     expect(fetchArticleContent).not.toHaveBeenCalled();
   });
 
-  it('処理中レコードを取得して要約して完了に更新する', () => {
+  it('処理待ちレコードを取得して要約して完了に更新する', () => {
     vi.mocked(hasPending).mockReturnValue(true);
     vi.mocked(queryPendingRecord)
       .mockReturnValueOnce({ id: 'page-1', url: 'https://example.com', retryCount: 0 })
@@ -174,7 +174,7 @@ describe('processPendingArticles', () => {
     expect(clearHasPending).not.toHaveBeenCalled();
   });
 
-  it('エラー発生時にリトライ回数がMAX未満ならインクリメントして処理中のまま残す', () => {
+  it('エラー発生時にリトライ回数がMAX未満ならインクリメントして処理待ちのまま残す', () => {
     vi.mocked(hasPending).mockReturnValue(true);
     vi.mocked(queryPendingRecord).mockReturnValue({
       id: 'page-1',

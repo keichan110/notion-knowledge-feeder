@@ -47,7 +47,7 @@ describe('createPendingRecord', () => {
     );
   });
 
-  it('ステータス「処理中」とURLをペイロードに含める', () => {
+  it('ステータス「処理待ち」とURLをペイロードに含める', () => {
     vi.mocked(UrlFetchApp.fetch)
       .mockReturnValueOnce(emptyQueryResponse())
       .mockReturnValueOnce(mockResponse(200, JSON.stringify({ id: 'page-123' })) as never);
@@ -58,7 +58,7 @@ describe('createPendingRecord', () => {
     const payload = JSON.parse((options as { payload: string }).payload);
     expect(payload.parent.database_id).toBe('db-id');
     // biome-ignore lint/complexity/useLiteralKeys: 日本語キーはブラケット記法を維持
-    expect(payload.properties['ステータス'].select.name).toBe('処理中');
+    expect(payload.properties['ステータス'].select.name).toBe('処理待ち');
     expect(payload.properties.URL.url).toBe('https://example.com');
   });
 
@@ -106,7 +106,7 @@ describe('createPendingRecord', () => {
 });
 
 describe('queryPendingRecord', () => {
-  it('ステータス「処理中」でフィルタしたクエリを送る', () => {
+  it('ステータス「処理待ち」でフィルタしたクエリを送る', () => {
     vi.mocked(UrlFetchApp.fetch).mockReturnValue(
       mockResponse(
         200,
@@ -121,7 +121,7 @@ describe('queryPendingRecord', () => {
     const [url, options] = vi.mocked(UrlFetchApp.fetch).mock.calls[0];
     expect(url).toBe('https://api.notion.com/v1/databases/db-id/query');
     const payload = JSON.parse((options as { payload: string }).payload);
-    expect(payload.filter.select.equals).toBe('処理中');
+    expect(payload.filter.select.equals).toBe('処理待ち');
     expect(payload.sorts).toEqual([
       { property: 'リトライ回数', direction: 'ascending' },
       { timestamp: 'created_time', direction: 'ascending' },
