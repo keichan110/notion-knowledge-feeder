@@ -62,6 +62,19 @@ describe('createPendingRecord', () => {
     expect(payload.properties.URL.url).toBe('https://example.com');
   });
 
+  it('リトライ回数を0で初期化する', () => {
+    vi.mocked(UrlFetchApp.fetch)
+      .mockReturnValueOnce(emptyQueryResponse())
+      .mockReturnValueOnce(mockResponse(200, JSON.stringify({ id: 'page-123' })) as never);
+
+    createPendingRecord('https://example.com', 'db-id', 'notion-key');
+
+    const [, options] = vi.mocked(UrlFetchApp.fetch).mock.calls[1];
+    const payload = JSON.parse((options as { payload: string }).payload);
+    // biome-ignore lint/complexity/useLiteralKeys: 日本語キーはブラケット記法を維持
+    expect(payload.properties['リトライ回数'].number).toBe(0);
+  });
+
   it('未登録URLの場合はページIDを返す', () => {
     vi.mocked(UrlFetchApp.fetch)
       .mockReturnValueOnce(emptyQueryResponse())
