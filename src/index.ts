@@ -2,9 +2,17 @@ import { clearHasPending, getConfig, hasPending, setHasPending } from './config'
 import { callGeminiAPI, type GeminiResult } from './gemini';
 import { fetchArticleContent } from './jina';
 import { log } from './log';
-import { createPendingRecord, DuplicateUrlError, queryPendingRecord, updateRecord } from './notion';
+import {
+  createPendingRecord,
+  DuplicateUrlError,
+  incrementRetryCount,
+  queryPendingRecord,
+  updateRecord,
+} from './notion';
 import { fetchQiitaTrendUrls, fetchZennTrendUrls } from './trend';
 import { createResponse, stripQueryString } from './utils';
+
+const MAX_RETRY_COUNT = 5;
 
 /**
  * iOSショートカットからのPOSTリクエストを受け取り、NotionにURLを仮登録する。
@@ -111,7 +119,7 @@ export function processTrendingZenn(): void {
 }
 
 /**
- * ステータスが「処理中」のNotionレコードを1件取得し、Jina・Geminiで処理してNotionを更新する。
+ * ステータスが「処理待ち」のNotionレコードを1件取得し、Jina・Geminiで処理してNotionを更新する。
  * 10分間隔のGASタイムトリガーから呼び出される。
  * `HAS_PENDING` フラグがない場合はNotion APIを呼び出さずに即座に終了する。
  */
@@ -141,9 +149,14 @@ export function processPendingArticles(): void {
     log.error('processPendingArticles', `failed at ${step}`, err, {
       pageId: pending.id,
       url: pending.url,
+      retryCount: pending.retryCount,
     });
     try {
-      updateRecord(pending.id, null, 'エラー', notionAccessToken);
+      if (pending.retryCount + 1 >= MAX_RETRY_COUNT) {
+        updateRecord(pending.id, null, 'エラー', notionAccessToken);
+      } else {
+        incrementRetryCount(pending.id, pending.retryCount, notionAccessToken);
+      }
     } catch (updateErr) {
       log.error('processPendingArticles', 'failed to update error status', updateErr, {
         pageId: pending.id,

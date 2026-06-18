@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GeminiResult } from './gemini';
-import { createPendingRecord, DuplicateUrlError, queryPendingRecord, updateRecord } from './notion';
+import {
+  createPendingRecord,
+  DuplicateUrlError,
+  incrementRetryCount,
+  queryPendingRecord,
+  updateRecord,
+} from './notion';
 
 const mockGeminiResult: GeminiResult = {
   title: 'テスト記事',
@@ -41,7 +47,7 @@ describe('createPendingRecord', () => {
     );
   });
 
-  it('ステータス「処理中」とURLをペイロードに含める', () => {
+  it('ステータス「処理待ち」とURLをペイロードに含める', () => {
     vi.mocked(UrlFetchApp.fetch)
       .mockReturnValueOnce(emptyQueryResponse())
       .mockReturnValueOnce(mockResponse(200, JSON.stringify({ id: 'page-123' })) as never);
@@ -52,7 +58,7 @@ describe('createPendingRecord', () => {
     const payload = JSON.parse((options as { payload: string }).payload);
     expect(payload.parent.database_id).toBe('db-id');
     // biome-ignore lint/complexity/useLiteralKeys: 日本語キーはブラケット記法を維持
-    expect(payload.properties['ステータス'].select.name).toBe('処理中');
+    expect(payload.properties['ステータス'].select.name).toBe('処理待ち');
     expect(payload.properties.URL.url).toBe('https://example.com');
   });
 
@@ -100,7 +106,7 @@ describe('createPendingRecord', () => {
 });
 
 describe('queryPendingRecord', () => {
-  it('ステータス「処理中」でフィルタしたクエリを送る', () => {
+  it('ステータス「処理待ち」でフィルタしたクエリを送る', () => {
     vi.mocked(UrlFetchApp.fetch).mockReturnValue(
       mockResponse(
         200,
@@ -115,12 +121,35 @@ describe('queryPendingRecord', () => {
     const [url, options] = vi.mocked(UrlFetchApp.fetch).mock.calls[0];
     expect(url).toBe('https://api.notion.com/v1/databases/db-id/query');
     const payload = JSON.parse((options as { payload: string }).payload);
-    expect(payload.filter.select.equals).toBe('処理中');
-    expect(payload.sorts).toEqual([{ timestamp: 'created_time', direction: 'ascending' }]);
+    expect(payload.filter.select.equals).toBe('処理待ち');
+    expect(payload.sorts).toEqual([
+      { property: 'リトライ回数', direction: 'ascending' },
+      { timestamp: 'created_time', direction: 'ascending' },
+    ]);
     expect(payload.page_size).toBe(1);
   });
 
-  it('結果が存在する場合はIDとURLを返す', () => {
+  it('結果が存在する場合はIDとURLとリトライ回数を返す', () => {
+    vi.mocked(UrlFetchApp.fetch).mockReturnValue(
+      mockResponse(
+        200,
+        JSON.stringify({
+          results: [
+            {
+              id: 'page-1',
+              properties: { URL: { url: 'https://example.com' }, リトライ回数: { number: 3 } },
+            },
+          ],
+        })
+      ) as never
+    );
+
+    const result = queryPendingRecord('db-id', 'notion-key');
+
+    expect(result).toEqual({ id: 'page-1', url: 'https://example.com', retryCount: 3 });
+  });
+
+  it('リトライ回数フィールドがない場合はretryCount=0を返す', () => {
     vi.mocked(UrlFetchApp.fetch).mockReturnValue(
       mockResponse(
         200,
@@ -132,7 +161,7 @@ describe('queryPendingRecord', () => {
 
     const result = queryPendingRecord('db-id', 'notion-key');
 
-    expect(result).toEqual({ id: 'page-1', url: 'https://example.com' });
+    expect(result).toEqual({ id: 'page-1', url: 'https://example.com', retryCount: 0 });
   });
 
   it('結果が0件の場合はnullを返す', () => {
@@ -292,5 +321,36 @@ describe('updateRecord', () => {
     expect(() => updateRecord('page-1', mockGeminiResult, '完了', 'notion-key')).toThrow(
       'Notion API error'
     );
+  });
+});
+
+describe('incrementRetryCount', () => {
+  it('PATCH /v1/pages/{id} にリトライ回数+1をペイロードとして送る', () => {
+    vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockResponse(200, '{}') as never);
+
+    incrementRetryCount('page-1', 2, 'notion-key');
+
+    const [url, options] = vi.mocked(UrlFetchApp.fetch).mock.calls[0];
+    expect(url).toBe('https://api.notion.com/v1/pages/page-1');
+    const payload = JSON.parse((options as { payload: string }).payload);
+    // biome-ignore lint/complexity/useLiteralKeys: 日本語キーはブラケット記法を維持
+    expect(payload.properties['リトライ回数'].number).toBe(3);
+  });
+
+  it('currentRetryCount=0の場合はリトライ回数を1にする', () => {
+    vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockResponse(200, '{}') as never);
+
+    incrementRetryCount('page-1', 0, 'notion-key');
+
+    const [, options] = vi.mocked(UrlFetchApp.fetch).mock.calls[0];
+    const payload = JSON.parse((options as { payload: string }).payload);
+    // biome-ignore lint/complexity/useLiteralKeys: 日本語キーはブラケット記法を維持
+    expect(payload.properties['リトライ回数'].number).toBe(1);
+  });
+
+  it('200以外のレスポンスの場合はエラーを投げる', () => {
+    vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockResponse(400, 'error') as never);
+
+    expect(() => incrementRetryCount('page-1', 0, 'notion-key')).toThrow('Notion API error');
   });
 });

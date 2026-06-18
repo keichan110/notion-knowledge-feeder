@@ -11,7 +11,13 @@ import type { GeminiResult } from './gemini';
 import { callGeminiAPI } from './gemini';
 import { doPost, processPendingArticles, processTrendingQiita, processTrendingZenn } from './index';
 import { fetchArticleContent } from './jina';
-import { createPendingRecord, DuplicateUrlError, queryPendingRecord, updateRecord } from './notion';
+import {
+  createPendingRecord,
+  DuplicateUrlError,
+  incrementRetryCount,
+  queryPendingRecord,
+  updateRecord,
+} from './notion';
 import { fetchQiitaTrendUrls, fetchZennTrendUrls } from './trend';
 
 const mockGeminiResult: GeminiResult = {
@@ -133,7 +139,7 @@ describe('processPendingArticles', () => {
     expect(queryPendingRecord).not.toHaveBeenCalled();
   });
 
-  it('HAS_PENDINGがあるが処理中レコードがない場合はフラグを削除する', () => {
+  it('HAS_PENDINGがあるが処理待ちレコードがない場合はフラグを削除する', () => {
     vi.mocked(hasPending).mockReturnValue(true);
     vi.mocked(queryPendingRecord).mockReturnValue(null);
 
@@ -143,10 +149,10 @@ describe('processPendingArticles', () => {
     expect(fetchArticleContent).not.toHaveBeenCalled();
   });
 
-  it('処理中レコードを取得して要約して完了に更新する', () => {
+  it('処理待ちレコードを取得して要約して完了に更新する', () => {
     vi.mocked(hasPending).mockReturnValue(true);
     vi.mocked(queryPendingRecord)
-      .mockReturnValueOnce({ id: 'page-1', url: 'https://example.com' })
+      .mockReturnValueOnce({ id: 'page-1', url: 'https://example.com', retryCount: 0 })
       .mockReturnValueOnce(null);
 
     processPendingArticles();
@@ -160,17 +166,39 @@ describe('processPendingArticles', () => {
   it('処理後に残レコードがある場合はフラグを維持する', () => {
     vi.mocked(hasPending).mockReturnValue(true);
     vi.mocked(queryPendingRecord)
-      .mockReturnValueOnce({ id: 'page-1', url: 'https://example.com' })
-      .mockReturnValueOnce({ id: 'page-2', url: 'https://example2.com' });
+      .mockReturnValueOnce({ id: 'page-1', url: 'https://example.com', retryCount: 0 })
+      .mockReturnValueOnce({ id: 'page-2', url: 'https://example2.com', retryCount: 0 });
 
     processPendingArticles();
 
     expect(clearHasPending).not.toHaveBeenCalled();
   });
 
-  it('記事取得に失敗した場合はエラーステータスに更新する', () => {
+  it('エラー発生時にリトライ回数がMAX未満ならインクリメントして処理待ちのまま残す', () => {
     vi.mocked(hasPending).mockReturnValue(true);
-    vi.mocked(queryPendingRecord).mockReturnValue({ id: 'page-1', url: 'https://example.com' });
+    vi.mocked(queryPendingRecord).mockReturnValue({
+      id: 'page-1',
+      url: 'https://example.com',
+      retryCount: 3,
+    });
+    vi.mocked(fetchArticleContent).mockImplementation(() => {
+      throw new Error('fetch failed');
+    });
+
+    processPendingArticles();
+
+    expect(incrementRetryCount).toHaveBeenCalledWith('page-1', 3, 'notion-key');
+    expect(updateRecord).not.toHaveBeenCalled();
+    expect(clearHasPending).not.toHaveBeenCalled();
+  });
+
+  it('エラー発生時にリトライ回数がMAX-1(4)ならエラーステータスに確定する', () => {
+    vi.mocked(hasPending).mockReturnValue(true);
+    vi.mocked(queryPendingRecord).mockReturnValue({
+      id: 'page-1',
+      url: 'https://example.com',
+      retryCount: 4,
+    });
     vi.mocked(fetchArticleContent).mockImplementation(() => {
       throw new Error('fetch failed');
     });
@@ -178,12 +206,16 @@ describe('processPendingArticles', () => {
     processPendingArticles();
 
     expect(updateRecord).toHaveBeenCalledWith('page-1', null, 'エラー', 'notion-key');
-    expect(clearHasPending).not.toHaveBeenCalled();
+    expect(incrementRetryCount).not.toHaveBeenCalled();
   });
 
-  it('Gemini APIが失敗した場合はエラーステータスに更新する', () => {
+  it('Gemini APIが失敗した場合もリトライ回数に基づいてエラー制御する', () => {
     vi.mocked(hasPending).mockReturnValue(true);
-    vi.mocked(queryPendingRecord).mockReturnValue({ id: 'page-1', url: 'https://example.com' });
+    vi.mocked(queryPendingRecord).mockReturnValue({
+      id: 'page-1',
+      url: 'https://example.com',
+      retryCount: 4,
+    });
     vi.mocked(callGeminiAPI).mockImplementation(() => {
       throw new Error('Gemini error');
     });
@@ -193,13 +225,34 @@ describe('processPendingArticles', () => {
     expect(updateRecord).toHaveBeenCalledWith('page-1', null, 'エラー', 'notion-key');
   });
 
-  it('エラーステータスへの更新が失敗しても例外を投げずに終了する', () => {
+  it('エラーステータス更新が失敗しても例外を投げずに終了する', () => {
     vi.mocked(hasPending).mockReturnValue(true);
-    vi.mocked(queryPendingRecord).mockReturnValue({ id: 'page-1', url: 'https://example.com' });
+    vi.mocked(queryPendingRecord).mockReturnValue({
+      id: 'page-1',
+      url: 'https://example.com',
+      retryCount: 4,
+    });
     vi.mocked(fetchArticleContent).mockImplementation(() => {
       throw new Error('fetch failed');
     });
     vi.mocked(updateRecord).mockImplementation(() => {
+      throw new Error('notion update failed');
+    });
+
+    expect(() => processPendingArticles()).not.toThrow();
+  });
+
+  it('リトライ回数インクリメントが失敗しても例外を投げずに終了する', () => {
+    vi.mocked(hasPending).mockReturnValue(true);
+    vi.mocked(queryPendingRecord).mockReturnValue({
+      id: 'page-1',
+      url: 'https://example.com',
+      retryCount: 0,
+    });
+    vi.mocked(fetchArticleContent).mockImplementation(() => {
+      throw new Error('fetch failed');
+    });
+    vi.mocked(incrementRetryCount).mockImplementation(() => {
       throw new Error('notion update failed');
     });
 
