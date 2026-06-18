@@ -152,7 +152,7 @@ export function processPendingArticles(): void {
       retryCount: pending.retryCount,
     });
     try {
-      if (pending.retryCount + 1 >= MAX_RETRY_COUNT) {
+      if (pending.retryCount + 1 > MAX_RETRY_COUNT) {
         updateRecord(pending.id, null, 'エラー', notionAccessToken);
       } else {
         incrementRetryCount(pending.id, pending.retryCount, notionAccessToken);
