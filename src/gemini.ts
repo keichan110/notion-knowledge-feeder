@@ -110,7 +110,9 @@ export function callGeminiAPI(
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiApiKey}`;
 
   const generationConfig: Record<string, unknown> = {
-    temperature: 0.3,
+    // Gemini 3 系は temperature 1.0（デフォルト）が推奨。下げるとループや性能劣化を招きうる。
+    // 忠実性・憶測抑制は temperature ではなく systemInstruction・responseSchema・thinkingLevel で担保する。
+    temperature: 1.0,
     responseMimeType: 'application/json',
     responseSchema: RESPONSE_SCHEMA,
   };
