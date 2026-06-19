@@ -64,7 +64,7 @@ describe('callGeminiAPI', () => {
     );
   });
 
-  it('プロンプトにセクション分割の指示が含まれる', () => {
+  it('systemInstructionにセクション分割の指示が含まれる', () => {
     const responseText = JSON.stringify({
       candidates: [{ content: { parts: [{ text: JSON.stringify(validResult) }] } }],
     });
@@ -74,8 +74,22 @@ describe('callGeminiAPI', () => {
 
     const [, options] = vi.mocked(UrlFetchApp.fetch).mock.calls[0];
     const payload = JSON.parse((options as { payload: string }).payload);
-    const promptText = payload.contents[0].parts[0].text as string;
-    expect(promptText).toContain('分割');
+    const instructionText = payload.systemInstruction.parts[0].text as string;
+    expect(instructionText).toContain('分割');
+  });
+
+  it('記事本文がcontentsに渡される', () => {
+    const responseText = JSON.stringify({
+      candidates: [{ content: { parts: [{ text: JSON.stringify(validResult) }] } }],
+    });
+    vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockResponse(200, responseText) as never);
+
+    callGeminiAPI('テスト記事の本文', 'gemini-2.5-flash', 'api-key');
+
+    const [, options] = vi.mocked(UrlFetchApp.fetch).mock.calls[0];
+    const payload = JSON.parse((options as { payload: string }).payload);
+    const contentText = payload.contents[0].parts[0].text as string;
+    expect(contentText).toContain('テスト記事の本文');
   });
 
   it('503エラー時にリトライして成功する', () => {

@@ -2,9 +2,7 @@ const MAX_RETRIES = 3;
 const INITIAL_BACKOFF_MS = 1000;
 const RETRYABLE_STATUSES = [503];
 
-const PROMPT_TEMPLATE = (
-  articleText: string
-) => `あなたはITエンジニア向けのナレッジキュレーターです。多忙なエンジニアがこの記事を「今ちゃんと読むべきか」を数秒で判断できるよう、記事本文を概要レベルで簡潔に要約し、指定のJSON形式で出力してください。詳細は読み手が元記事を開いて確認するので、ここでは要点と読みどころが伝われば十分です。
+const SYSTEM_INSTRUCTION = `あなたはITエンジニア向けのナレッジキュレーターです。多忙なエンジニアが記事を「今ちゃんと読むべきか」を数秒で判断できるよう、与えられた記事本文を概要レベルで簡潔に要約し、指定のJSON形式で出力してください。詳細は読み手が元記事を開いて確認するので、ここでは要点と読みどころが伝われば十分です。
 
 # 出力ルール
 - 出力はJSONオブジェクトのみ。前置き・説明文・コードブロック記号（\`\`\`）を一切含めない。
@@ -32,9 +30,9 @@ const PROMPT_TEMPLATE = (
   "summary": [{ "heading": "string", "body": "string" }],
   "category": "string",
   "tags": ["string"]
-}
+}`;
 
-# 記事本文
+const articleContent = (articleText: string) => `# 記事本文
 """
 ${articleText}
 """`;
@@ -78,7 +76,8 @@ export function callGeminiAPI(
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiApiKey}`;
 
   const payload = {
-    contents: [{ parts: [{ text: PROMPT_TEMPLATE(articleText) }] }],
+    systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+    contents: [{ parts: [{ text: articleContent(articleText) }] }],
     generationConfig: { temperature: 0.3 },
   };
 
