@@ -1,6 +1,6 @@
 const MAX_RETRIES = 3;
 const INITIAL_BACKOFF_MS = 1000;
-const RETRYABLE_STATUSES = [429, 503];
+const RETRYABLE_STATUSES = [503];
 
 const PROMPT_TEMPLATE = (
   articleText: string
@@ -50,7 +50,7 @@ export type GeminiResult = {
 
 /**
  * Gemini APIに記事本文を送信し、要約・構造化した結果を返す。
- * 429・503エラーは指数バックオフで最大3回リトライする。
+ * 503エラーは指数バックオフで最大3回リトライする。429エラーはリトライせず即座にエラーを投げる。
  * @param articleText 要約対象の記事本文
  * @param geminiModel 使用するGeminiモデル名
  * @param geminiApiKey Gemini APIキー

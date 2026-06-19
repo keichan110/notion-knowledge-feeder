@@ -113,18 +113,14 @@ describe('callGeminiAPI', () => {
     expect(Utilities.sleep).toHaveBeenNthCalledWith(3, 4000);
   });
 
-  it('429エラー時にリトライして成功する', () => {
-    const responseText = JSON.stringify({
-      candidates: [{ content: { parts: [{ text: JSON.stringify(validResult) }] } }],
-    });
-    vi.mocked(UrlFetchApp.fetch)
-      .mockReturnValueOnce(mockResponse(429, '') as never)
-      .mockReturnValueOnce(mockResponse(200, responseText) as never);
+  it('429エラー時はリトライせず即座にエラーを投げる', () => {
+    vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockResponse(429, '') as never);
 
-    const result = callGeminiAPI('記事本文', 'gemini-2.5-flash', 'api-key');
-
-    expect(result).toEqual(validResult);
-    expect(UrlFetchApp.fetch).toHaveBeenCalledTimes(2);
+    expect(() => callGeminiAPI('記事本文', 'gemini-2.5-flash', 'api-key')).toThrow(
+      'Gemini API error: HTTP 429'
+    );
+    expect(UrlFetchApp.fetch).toHaveBeenCalledTimes(1);
+    expect(Utilities.sleep).not.toHaveBeenCalled();
   });
 
   it('400エラー時はリトライせず即座にエラーを投げる', () => {
