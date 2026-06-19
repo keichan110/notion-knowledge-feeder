@@ -57,6 +57,7 @@ export function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Cont
 /**
  * QiitaのトレンドフィードからURLを取得してNotionに仮登録する。
  * GASタイムトリガー（日次）から呼び出される。
+ * フィード取得失敗、または1件以上の登録失敗時は例外を投げ、GAS実行を「失敗」にして異常を検知できるようにする。
  */
 export function processTrendingQiita(): void {
   let urls: string[];
@@ -64,11 +65,13 @@ export function processTrendingQiita(): void {
     urls = fetchQiitaTrendUrls();
   } catch (err) {
     log.error('processTrendingQiita', 'fetch failed', err);
-    return;
+    // GAS実行を「失敗」にして異常を検知できるよう再throwする
+    throw err;
   }
   log.info('processTrendingQiita', 'start', { count: urls.length });
 
   let registered = 0;
+  let failed = 0;
   for (const url of urls) {
     try {
       registerPendingUrl(url);
@@ -79,16 +82,23 @@ export function processTrendingQiita(): void {
         log.warn('processTrendingQiita', 'skip duplicate', { url });
       } else {
         log.error('processTrendingQiita', 'register failed', err, { url });
+        failed++;
       }
     }
   }
 
   log.info('processTrendingQiita', 'done', { registered });
+
+  // 残りのURLは処理しきった上で、1件でも失敗があればGAS実行を「失敗」にする
+  if (failed > 0) {
+    throw new Error(`processTrendingQiita: failed to register ${failed} URL(s)`);
+  }
 }
 
 /**
  * ZennのトレンドフィードからURLを取得してNotionに仮登録する。
  * GASタイムトリガー（日次）から呼び出される。
+ * フィード取得失敗、または1件以上の登録失敗時は例外を投げ、GAS実行を「失敗」にして異常を検知できるようにする。
  */
 export function processTrendingZenn(): void {
   let urls: string[];
@@ -96,11 +106,13 @@ export function processTrendingZenn(): void {
     urls = fetchZennTrendUrls();
   } catch (err) {
     log.error('processTrendingZenn', 'fetch failed', err);
-    return;
+    // GAS実行を「失敗」にして異常を検知できるよう再throwする
+    throw err;
   }
   log.info('processTrendingZenn', 'start', { count: urls.length });
 
   let registered = 0;
+  let failed = 0;
   for (const url of urls) {
     try {
       registerPendingUrl(url);
@@ -111,17 +123,24 @@ export function processTrendingZenn(): void {
         log.warn('processTrendingZenn', 'skip duplicate', { url });
       } else {
         log.error('processTrendingZenn', 'register failed', err, { url });
+        failed++;
       }
     }
   }
 
   log.info('processTrendingZenn', 'done', { registered });
+
+  // 残りのURLは処理しきった上で、1件でも失敗があればGAS実行を「失敗」にする
+  if (failed > 0) {
+    throw new Error(`processTrendingZenn: failed to register ${failed} URL(s)`);
+  }
 }
 
 /**
  * ステータスが「処理待ち」のNotionレコードを1件取得し、Jina・Geminiで処理してNotionを更新する。
  * 10分間隔のGASタイムトリガーから呼び出される。
  * `HAS_PENDING` フラグがない場合はNotion APIを呼び出さずに即座に終了する。
+ * 処理失敗時はリトライ回数の更新を行った上で例外を投げ、GAS実行を「失敗」にして異常を検知できるようにする。
  */
 export function processPendingArticles(): void {
   const { geminiModel, geminiApiKey, notionDbId, notionAccessToken } = getConfig();
@@ -162,7 +181,8 @@ export function processPendingArticles(): void {
         pageId: pending.id,
       });
     }
-    return;
+    // リトライ更新まで終えた上で、元のエラーを再throwしてGAS実行を「失敗」にし、異常を検知できるようにする
+    throw err;
   }
 
   log.info('processPendingArticles', 'done', { pageId: pending.id });

@@ -55,5 +55,5 @@ export function setHasPending(): void {
  * 未処理記事フラグ（`HAS_PENDING`）を削除する。
  */
 export function clearHasPending(): void {
-  PropertiesService.getScriptProperties().deleteProperty('HAS_PENDING');
+  PropertiesService.getScriptProperties().setProperty('HAS_PENDING', 'false');
 }

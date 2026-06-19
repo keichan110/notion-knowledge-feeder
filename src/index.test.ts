@@ -174,7 +174,7 @@ describe('processPendingArticles', () => {
     expect(clearHasPending).not.toHaveBeenCalled();
   });
 
-  it('エラー発生時にリトライ回数がMAX未満ならインクリメントして処理待ちのまま残す', () => {
+  it('エラー発生時にリトライ回数がMAX未満ならインクリメントした上で例外を投げる', () => {
     vi.mocked(hasPending).mockReturnValue(true);
     vi.mocked(queryPendingRecord).mockReturnValue({
       id: 'page-1',
@@ -185,14 +185,14 @@ describe('processPendingArticles', () => {
       throw new Error('fetch failed');
     });
 
-    processPendingArticles();
+    expect(() => processPendingArticles()).toThrow('fetch failed');
 
     expect(incrementRetryCount).toHaveBeenCalledWith('page-1', 3, 'notion-key');
     expect(updateRecord).not.toHaveBeenCalled();
     expect(clearHasPending).not.toHaveBeenCalled();
   });
 
-  it('エラー発生時にリトライ回数が4ならインクリメントして処理待ちのまま残す', () => {
+  it('エラー発生時にリトライ回数が4ならインクリメントした上で例外を投げる', () => {
     vi.mocked(hasPending).mockReturnValue(true);
     vi.mocked(queryPendingRecord).mockReturnValue({
       id: 'page-1',
@@ -203,13 +203,13 @@ describe('processPendingArticles', () => {
       throw new Error('fetch failed');
     });
 
-    processPendingArticles();
+    expect(() => processPendingArticles()).toThrow('fetch failed');
 
     expect(incrementRetryCount).toHaveBeenCalledWith('page-1', 4, 'notion-key');
     expect(updateRecord).not.toHaveBeenCalled();
   });
 
-  it('エラー発生時にリトライ回数がMAX(5)ならエラーステータスに確定する', () => {
+  it('エラー発生時にリトライ回数がMAX(5)ならエラーステータスに確定した上で例外を投げる', () => {
     vi.mocked(hasPending).mockReturnValue(true);
     vi.mocked(queryPendingRecord).mockReturnValue({
       id: 'page-1',
@@ -220,13 +220,13 @@ describe('processPendingArticles', () => {
       throw new Error('fetch failed');
     });
 
-    processPendingArticles();
+    expect(() => processPendingArticles()).toThrow('fetch failed');
 
     expect(updateRecord).toHaveBeenCalledWith('page-1', null, 'エラー', 'notion-key');
     expect(incrementRetryCount).not.toHaveBeenCalled();
   });
 
-  it('Gemini APIが失敗した場合もリトライ回数に基づいてエラー制御する', () => {
+  it('Gemini APIが失敗した場合もリトライ回数に基づいてエラー制御した上で例外を投げる', () => {
     vi.mocked(hasPending).mockReturnValue(true);
     vi.mocked(queryPendingRecord).mockReturnValue({
       id: 'page-1',
@@ -237,12 +237,12 @@ describe('processPendingArticles', () => {
       throw new Error('Gemini error');
     });
 
-    processPendingArticles();
+    expect(() => processPendingArticles()).toThrow('Gemini error');
 
     expect(updateRecord).toHaveBeenCalledWith('page-1', null, 'エラー', 'notion-key');
   });
 
-  it('エラーステータス更新が失敗しても例外を投げずに終了する', () => {
+  it('エラーステータス更新が失敗しても元のエラーを投げる', () => {
     vi.mocked(hasPending).mockReturnValue(true);
     vi.mocked(queryPendingRecord).mockReturnValue({
       id: 'page-1',
@@ -256,10 +256,10 @@ describe('processPendingArticles', () => {
       throw new Error('notion update failed');
     });
 
-    expect(() => processPendingArticles()).not.toThrow();
+    expect(() => processPendingArticles()).toThrow('fetch failed');
   });
 
-  it('リトライ回数インクリメントが失敗しても例外を投げずに終了する', () => {
+  it('リトライ回数インクリメントが失敗しても元のエラーを投げる', () => {
     vi.mocked(hasPending).mockReturnValue(true);
     vi.mocked(queryPendingRecord).mockReturnValue({
       id: 'page-1',
@@ -273,17 +273,17 @@ describe('processPendingArticles', () => {
       throw new Error('notion update failed');
     });
 
-    expect(() => processPendingArticles()).not.toThrow();
+    expect(() => processPendingArticles()).toThrow('fetch failed');
   });
 });
 
 describe('processTrendingQiita', () => {
-  it('フィード取得に失敗した場合は何もしない', () => {
+  it('フィード取得に失敗した場合は例外を投げる', () => {
     vi.mocked(fetchQiitaTrendUrls).mockImplementation(() => {
       throw new Error('fetch failed');
     });
 
-    processTrendingQiita();
+    expect(() => processTrendingQiita()).toThrow('fetch failed');
 
     expect(createPendingRecord).not.toHaveBeenCalled();
   });
@@ -318,7 +318,7 @@ describe('processTrendingQiita', () => {
     expect(setHasPending).not.toHaveBeenCalled();
   });
 
-  it('1件の登録が失敗しても残りのURLは処理する', () => {
+  it('1件の登録が失敗しても残りのURLは処理した上で例外を投げる', () => {
     vi.mocked(fetchQiitaTrendUrls).mockReturnValue([
       'https://qiita.com/article1',
       'https://qiita.com/article2',
@@ -329,7 +329,7 @@ describe('processTrendingQiita', () => {
       })
       .mockReturnValueOnce('page-id');
 
-    processTrendingQiita();
+    expect(() => processTrendingQiita()).toThrow();
 
     expect(createPendingRecord).toHaveBeenCalledTimes(2);
     expect(setHasPending).toHaveBeenCalled();
@@ -354,12 +354,12 @@ describe('processTrendingQiita', () => {
 });
 
 describe('processTrendingZenn', () => {
-  it('フィード取得に失敗した場合は何もしない', () => {
+  it('フィード取得に失敗した場合は例外を投げる', () => {
     vi.mocked(fetchZennTrendUrls).mockImplementation(() => {
       throw new Error('fetch failed');
     });
 
-    processTrendingZenn();
+    expect(() => processTrendingZenn()).toThrow('fetch failed');
 
     expect(createPendingRecord).not.toHaveBeenCalled();
   });
@@ -394,7 +394,7 @@ describe('processTrendingZenn', () => {
     expect(setHasPending).not.toHaveBeenCalled();
   });
 
-  it('1件の登録が失敗しても残りのURLは処理する', () => {
+  it('1件の登録が失敗しても残りのURLは処理した上で例外を投げる', () => {
     vi.mocked(fetchZennTrendUrls).mockReturnValue([
       'https://zenn.dev/article1',
       'https://zenn.dev/article2',
@@ -405,7 +405,7 @@ describe('processTrendingZenn', () => {
       })
       .mockReturnValueOnce('page-id');
 
-    processTrendingZenn();
+    expect(() => processTrendingZenn()).toThrow();
 
     expect(createPendingRecord).toHaveBeenCalledTimes(2);
     expect(setHasPending).toHaveBeenCalled();

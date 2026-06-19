@@ -78,11 +78,12 @@ describe('setHasPending', () => {
 });
 
 describe('clearHasPending', () => {
-  it('HAS_PENDINGを削除する', () => {
+  it('HAS_PENDINGに"false"をセットする', () => {
     clearHasPending();
 
-    expect(PropertiesService.getScriptProperties().deleteProperty).toHaveBeenCalledWith(
-      'HAS_PENDING'
+    expect(PropertiesService.getScriptProperties().setProperty).toHaveBeenCalledWith(
+      'HAS_PENDING',
+      'false'
     );
   });
 });
