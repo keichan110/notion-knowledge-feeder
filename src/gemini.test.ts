@@ -147,15 +147,18 @@ describe('callGeminiAPI', () => {
     expect(Utilities.sleep).not.toHaveBeenCalled();
   });
 
-  it('レスポンスJSONの中にJSONブロックが埋め込まれていても抽出できる', () => {
-    const embeddedText = `以下の結果です：\n${JSON.stringify(validResult)}\n以上です。`;
+  it('構造化出力(responseSchema)の設定がpayloadに含まれる', () => {
     const responseText = JSON.stringify({
-      candidates: [{ content: { parts: [{ text: embeddedText }] } }],
+      candidates: [{ content: { parts: [{ text: JSON.stringify(validResult) }] } }],
     });
     vi.mocked(UrlFetchApp.fetch).mockReturnValue(mockResponse(200, responseText) as never);
 
-    const result = callGeminiAPI('記事本文', 'gemini-2.5-flash', 'api-key');
+    callGeminiAPI('記事本文', 'gemini-2.5-flash', 'api-key');
 
-    expect(result).toEqual(validResult);
+    const [, options] = vi.mocked(UrlFetchApp.fetch).mock.calls[0];
+    const payload = JSON.parse((options as { payload: string }).payload);
+    expect(payload.generationConfig.responseMimeType).toBe('application/json');
+    expect(payload.generationConfig.responseSchema.type).toBe('OBJECT');
+    expect(payload.generationConfig.responseSchema.properties.category.enum).toContain('AI/ML');
   });
 });
