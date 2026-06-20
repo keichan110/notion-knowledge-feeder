@@ -1,4 +1,3 @@
-import { callGeminiAPI, type GeminiResult } from '../../capabilities/gemini';
 import { fetchArticleContent } from '../../capabilities/jina';
 import {
   createPendingRecord,
@@ -10,6 +9,7 @@ import {
 import { clearHasPending, getConfig, hasPending, setHasPending } from '../../lib/config';
 import { log } from '../../lib/log';
 import { createResponse, stripQueryString } from '../../lib/utils';
+import { type GeminiResult, summarizeArticle } from './gemini';
 import { fetchQiitaTrendUrls, fetchZennTrendUrls } from './sources';
 
 const MAX_RETRY_COUNT = 5;
@@ -159,7 +159,7 @@ export function processPendingArticles(): void {
     const articleText = fetchArticleContent(pending.url);
 
     step = 'gemini';
-    const geminiResult: GeminiResult = callGeminiAPI(articleText, geminiModel, geminiApiKey);
+    const geminiResult: GeminiResult = summarizeArticle(articleText, geminiModel, geminiApiKey);
 
     step = 'notion';
     updateRecord(pending.id, geminiResult, '完了', notionAccessToken);

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { GeminiResult } from './gemini';
+import type { GeminiResult } from '../pipelines/article-ingest/gemini';
 import {
   createPendingRecord,
   DuplicateUrlError,

@@ -6,11 +6,8 @@ vi.mock('./capabilities/jina');
 vi.mock('./capabilities/notion');
 vi.mock('./pipelines/article-ingest/sources');
 
-import type { GeminiResult } from './capabilities/gemini';
 import { callGeminiAPI } from './capabilities/gemini';
-import { doPost, processPendingArticles, processTrendingQiita, processTrendingZenn } from './index';
 import { fetchArticleContent } from './capabilities/jina';
-import { clearHasPending, getConfig, hasPending, setHasPending } from './lib/config';
 import {
   createPendingRecord,
   DuplicateUrlError,
@@ -18,6 +15,9 @@ import {
   queryPendingRecord,
   updateRecord,
 } from './capabilities/notion';
+import { doPost, processPendingArticles, processTrendingQiita, processTrendingZenn } from './index';
+import { clearHasPending, getConfig, hasPending, setHasPending } from './lib/config';
+import type { GeminiResult } from './pipelines/article-ingest/gemini';
 import { fetchQiitaTrendUrls, fetchZennTrendUrls } from './pipelines/article-ingest/sources';
 
 const mockGeminiResult: GeminiResult = {
@@ -43,7 +43,7 @@ beforeEach(() => {
   vi.mocked(createPendingRecord).mockReturnValue('page-id');
   vi.mocked(queryPendingRecord).mockReturnValue(null);
   vi.mocked(fetchArticleContent).mockReturnValue('article text');
-  vi.mocked(callGeminiAPI).mockReturnValue(mockGeminiResult);
+  vi.mocked(callGeminiAPI).mockReturnValue(JSON.stringify(mockGeminiResult));
   vi.mocked(hasPending).mockReturnValue(false);
   vi.mocked(fetchQiitaTrendUrls).mockReturnValue([]);
   vi.mocked(fetchZennTrendUrls).mockReturnValue([]);
@@ -158,7 +158,13 @@ describe('processPendingArticles', () => {
     processPendingArticles();
 
     expect(fetchArticleContent).toHaveBeenCalledWith('https://example.com');
-    expect(callGeminiAPI).toHaveBeenCalledWith('article text', 'gemini-2.5-flash', 'gemini-key');
+    expect(callGeminiAPI).toHaveBeenCalledWith(
+      expect.objectContaining({
+        geminiModel: 'gemini-2.5-flash',
+        geminiApiKey: 'gemini-key',
+        userContent: expect.stringContaining('article text'),
+      })
+    );
     expect(updateRecord).toHaveBeenCalledWith('page-1', mockGeminiResult, '完了', 'notion-key');
     expect(clearHasPending).toHaveBeenCalled();
   });

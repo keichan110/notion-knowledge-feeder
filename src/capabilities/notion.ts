@@ -1,4 +1,4 @@
-import type { GeminiResult } from './gemini';
+import type { GeminiResult } from '../pipelines/article-ingest/gemini';
 
 const NOTION_API_BASE = 'https://api.notion.com/v1';
 const MAX_RICH_TEXT_LENGTH = 2000;
