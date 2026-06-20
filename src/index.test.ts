@@ -4,7 +4,7 @@ vi.mock('./lib/config');
 vi.mock('./capabilities/gemini');
 vi.mock('./capabilities/jina');
 vi.mock('./capabilities/notion');
-vi.mock('./trend');
+vi.mock('./pipelines/article-ingest/sources');
 
 import type { GeminiResult } from './capabilities/gemini';
 import { callGeminiAPI } from './capabilities/gemini';
@@ -18,7 +18,7 @@ import {
   queryPendingRecord,
   updateRecord,
 } from './capabilities/notion';
-import { fetchQiitaTrendUrls, fetchZennTrendUrls } from './trend';
+import { fetchQiitaTrendUrls, fetchZennTrendUrls } from './pipelines/article-ingest/sources';
 
 const mockGeminiResult: GeminiResult = {
   title: 'テスト記事',
