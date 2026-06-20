@@ -98,3 +98,7 @@ export function doPost(e): TextOutput {
 ## ログ
 
 [`docs/guides/logging-rules.md`](./logging-rules.md) を参照。
+
+## アーキテクチャ（Capability層 / Pipeline層）
+
+どの層にコードを置くか・各層の責務は [`docs/guides/capability-pipeline.md`](./capability-pipeline.md) を参照。
