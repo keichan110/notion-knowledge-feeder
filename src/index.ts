@@ -1,7 +1,8 @@
-import { clearHasPending, getConfig, hasPending, setHasPending } from './config';
 import { callGeminiAPI, type GeminiResult } from './gemini';
 import { fetchArticleContent } from './jina';
-import { log } from './log';
+import { clearHasPending, getConfig, hasPending, setHasPending } from './lib/config';
+import { log } from './lib/log';
+import { createResponse, stripQueryString } from './lib/utils';
 import {
   createPendingRecord,
   DuplicateUrlError,
@@ -10,7 +11,6 @@ import {
   updateRecord,
 } from './notion';
 import { fetchQiitaTrendUrls, fetchZennTrendUrls } from './trend';
-import { createResponse, stripQueryString } from './utils';
 
 const MAX_RETRY_COUNT = 5;
 

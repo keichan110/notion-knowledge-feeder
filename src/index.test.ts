@@ -1,16 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('./config');
+vi.mock('./lib/config');
 vi.mock('./gemini');
 vi.mock('./jina');
 vi.mock('./notion');
 vi.mock('./trend');
 
-import { clearHasPending, getConfig, hasPending, setHasPending } from './config';
 import type { GeminiResult } from './gemini';
 import { callGeminiAPI } from './gemini';
 import { doPost, processPendingArticles, processTrendingQiita, processTrendingZenn } from './index';
 import { fetchArticleContent } from './jina';
+import { clearHasPending, getConfig, hasPending, setHasPending } from './lib/config';
 import {
   createPendingRecord,
   DuplicateUrlError,
