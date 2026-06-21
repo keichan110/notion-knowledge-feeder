@@ -3,98 +3,99 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('../../capabilities/gemini');
 
 import { callGeminiAPI } from '../../capabilities/gemini';
-import {
-  type DigestSummary,
-  type NewsletterInput,
-  parseDigestSummary,
-  summarizeNewsletters,
-} from './gemini';
+import { type NewsletterInput, parseNewsletterSummaries, summarizeNewsletterPage } from './gemini';
 
 const newsletters: NewsletterInput[] = [
   { subject: 'Newsletter 1', from: 'sender1@example.com', body: '本文1' },
   { subject: 'Newsletter 2', from: 'sender2@example.com', body: '本文2' },
 ];
 
-const validSummary: DigestSummary = {
-  actionItems: [{ subject: 'Newsletter 1', reason: '6月30日までに回答が必要' }],
-  categories: [
-    { label: 'AI/ML', count: 1 },
-    { label: 'イベント案内', count: 1 },
+const validResponse = {
+  summaries: [
+    { subject: 'Newsletter 1', summary: '要約1。6月30日の締切を含む。' },
+    { subject: 'Newsletter 2', summary: '要約2。' },
   ],
-  overview: '前日のNewsletterではGeminiとイベント案内が中心でした。',
 };
 
-describe('summarizeNewsletters', () => {
-  it('digest用のsystemInstructionと全NewsletterをGeminiに渡す', () => {
-    vi.mocked(callGeminiAPI).mockReturnValue(JSON.stringify(validSummary));
+describe('summarizeNewsletterPage', () => {
+  it('ページ用のsystemInstructionと全NewsletterをGeminiに渡す', () => {
+    vi.mocked(callGeminiAPI).mockReturnValue(JSON.stringify(validResponse));
 
-    summarizeNewsletters(newsletters, 'gemini-3.1-flash-lite', 'api-key');
+    summarizeNewsletterPage(newsletters, 'gemini-3.1-flash-lite', 'api-key');
 
     expect(callGeminiAPI).toHaveBeenCalledWith(
       expect.objectContaining({
         geminiModel: 'gemini-3.1-flash-lite',
         geminiApiKey: 'api-key',
-        systemInstruction: expect.stringContaining('複数のNewsletterを横断的に要約'),
-        userContent: expect.stringContaining('Newsletter 1'),
+        systemInstruction: expect.stringContaining('1通ずつ要約'),
+        userContent: expect.stringContaining('## Newsletter 1'),
         responseSchema: expect.objectContaining({ type: 'OBJECT' }),
       })
     );
     const params = vi.mocked(callGeminiAPI).mock.calls[0][0];
+    expect(params.systemInstruction).toContain('日付は要約から絶対に省略しない');
+    expect(params.userContent).toContain('Newsletter 1');
+    expect(params.userContent).toContain('sender1@example.com');
     expect(params.userContent).toContain('本文1');
     expect(params.userContent).toContain('Newsletter 2');
     expect(params.userContent).toContain('本文2');
   });
 
-  it('digest用のresponseSchemaをGeminiに渡す', () => {
-    vi.mocked(callGeminiAPI).mockReturnValue(JSON.stringify(validSummary));
+  it('ページ要約用のresponseSchemaをGeminiに渡す', () => {
+    vi.mocked(callGeminiAPI).mockReturnValue(JSON.stringify(validResponse));
 
-    summarizeNewsletters(newsletters, 'gemini-3.1-flash-lite', 'api-key');
+    summarizeNewsletterPage(newsletters, 'gemini-3.1-flash-lite', 'api-key');
 
     const params = vi.mocked(callGeminiAPI).mock.calls[0][0];
-    expect(params.responseSchema).toEqual(
-      expect.objectContaining({
-        type: 'OBJECT',
-        required: ['actionItems', 'categories', 'overview'],
-        propertyOrdering: ['actionItems', 'categories', 'overview'],
-      })
-    );
+    expect(params.responseSchema).toEqual({
+      type: 'OBJECT',
+      properties: {
+        summaries: {
+          type: 'ARRAY',
+          items: {
+            type: 'OBJECT',
+            properties: {
+              subject: { type: 'STRING' },
+              summary: { type: 'STRING' },
+            },
+            required: ['subject', 'summary'],
+            propertyOrdering: ['subject', 'summary'],
+          },
+        },
+      },
+      required: ['summaries'],
+    });
   });
 
   it('Geminiの応答テキストをパースして返す', () => {
-    vi.mocked(callGeminiAPI).mockReturnValue(JSON.stringify(validSummary));
+    vi.mocked(callGeminiAPI).mockReturnValue(JSON.stringify(validResponse));
 
-    const result = summarizeNewsletters(newsletters, 'gemini-3.1-flash-lite', 'api-key');
+    const result = summarizeNewsletterPage(newsletters, 'gemini-3.1-flash-lite', 'api-key');
 
-    expect(result).toEqual(validSummary);
+    expect(result).toEqual(validResponse.summaries);
   });
 
   it('Geminiの応答テキストがJSONではない場合はエラーを投げる', () => {
     vi.mocked(callGeminiAPI).mockReturnValue('invalid response');
 
-    expect(() => summarizeNewsletters(newsletters, 'gemini-3.1-flash-lite', 'api-key')).toThrow(
+    expect(() => summarizeNewsletterPage(newsletters, 'gemini-3.1-flash-lite', 'api-key')).toThrow(
       'Gemini returned invalid JSON'
     );
   });
 });
 
-describe('parseDigestSummary', () => {
-  it('必須フィールドが欠けている場合はエラーを投げる', () => {
+describe('parseNewsletterSummaries', () => {
+  it('summaries要素の型が不正な場合はエラーを投げる', () => {
     expect(() =>
-      parseDigestSummary(JSON.stringify({ ...validSummary, overview: undefined }))
-    ).toThrow('Gemini returned invalid JSON');
-  });
-
-  it('actionItemsが空配列でも有効な結果として返す', () => {
-    const summary = { ...validSummary, actionItems: [] };
-
-    expect(parseDigestSummary(JSON.stringify(summary))).toEqual(summary);
-  });
-
-  it('categoriesの要素の型が不正な場合はエラーを投げる', () => {
-    expect(() =>
-      parseDigestSummary(
-        JSON.stringify({ ...validSummary, categories: [{ label: 'AI/ML', count: '1' }] })
+      parseNewsletterSummaries(
+        JSON.stringify({ summaries: [{ subject: 'Newsletter 1', summary: 123 }] })
       )
     ).toThrow('Gemini returned invalid JSON');
+  });
+
+  it('正常なsummaries配列を返す', () => {
+    expect(parseNewsletterSummaries(JSON.stringify(validResponse))).toEqual(
+      validResponse.summaries
+    );
   });
 });

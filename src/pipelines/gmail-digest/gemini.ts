@@ -5,75 +5,43 @@ import {
   type GeminiResponseSchema,
 } from '../../capabilities/gemini';
 
-const SYSTEM_INSTRUCTION = `あなたは、前日に届いた複数のNewsletterを横断的に要約するキュレーターです。指定のJSON形式で出力してください。
+const SYSTEM_INSTRUCTION =
+  'あなたは、与えられた複数のNewsletter(メールマガジン)を1通ずつ要約するアシスタントです。各メールについて「何の連絡か・要点は何か」が掴める簡潔な要約を1〜2文でsummaryに書いてください。セミナーやイベントの申込期限・締切・開催日などの日付は要約から絶対に省略しないでください。subjectは入力メールの件名をそのまま使ってください。入力と同じ件数のsummariesを入力と同じ順序で返してください。書かれている内容だけ使い推測しないでください。';
 
-# 出力ルール
-- すべてのフィールドを必ず埋める。
-- Newsletterに書かれている内容だけを使う。推測・憶測や、書かれていない情報の補完はしない。
-
-# フィールド別ルール
-- actionItems: 締切・期限、返信・回答の要求、登録・申込の期限、重要な対応が必要なメールだけを挙げる。なければ空配列にする。subjectは該当メールの件名をそのまま使う。reasonは何の対応がいつ必要かを簡潔に書く。対応不要なら無理に作らない。
-- categories: その日のNewsletterをトピック/ジャンルで分類し、ラベルと件数を返す。ラベルは内容に応じて自由に生成する。例: AI/ML, 製品アップデート, イベント案内。
-- overview: 前日Newsletter全体を1つにまとめた横断要約。数文から短い段落で、固有名詞・要点を残し簡潔に書く。`;
-
-// Gemini の構造化出力（responseSchema）。DigestSummary の形状を API レベルで保証する。
-// type は REST API 仕様に従い大文字表記を使う。
 const RESPONSE_SCHEMA: GeminiResponseSchema = {
   type: 'OBJECT',
   properties: {
-    actionItems: {
+    summaries: {
       type: 'ARRAY',
       items: {
         type: 'OBJECT',
         properties: {
           subject: { type: 'STRING' },
-          reason: { type: 'STRING' },
+          summary: { type: 'STRING' },
         },
-        required: ['subject', 'reason'],
-        propertyOrdering: ['subject', 'reason'],
+        required: ['subject', 'summary'],
+        propertyOrdering: ['subject', 'summary'],
       },
     },
-    categories: {
-      type: 'ARRAY',
-      items: {
-        type: 'OBJECT',
-        properties: {
-          label: { type: 'STRING' },
-          count: { type: 'NUMBER' },
-        },
-        required: ['label', 'count'],
-        propertyOrdering: ['label', 'count'],
-      },
-    },
-    overview: { type: 'STRING' },
   },
-  required: ['actionItems', 'categories', 'overview'],
-  propertyOrdering: ['actionItems', 'categories', 'overview'],
+  required: ['summaries'],
 };
 
 export type NewsletterInput = { subject: string; from: string; body: string };
-export type DigestActionItem = { subject: string; reason: string };
-export type DigestCategory = { label: string; count: number };
-export type DigestSummary = {
-  actionItems: DigestActionItem[];
-  categories: DigestCategory[];
-  overview: string;
-};
+export type NewsletterSummary = { subject: string; summary: string };
 
 /**
- * 複数のNewsletterをGeminiで横断要約し、gmail-digest用の構造化結果として返す。
- *
- * @param newsletters - 要約対象のNewsletter配列。
- * @param geminiModel - 使用するGeminiモデル名。
- * @param geminiApiKey - Gemini APIキー。
- * @returns Newsletter横断要約の構造化結果。
- * @throws Geminiの応答が `DigestSummary` として有効なJSONではない場合。
+ * ページ単位のNewsletterをGeminiで1通ずつ要約する。
+ * @param newsletters 要約対象のNewsletter配列
+ * @param geminiModel 使用するGeminiモデル名
+ * @param geminiApiKey Gemini APIキー
+ * @returns 入力順に対応するNewsletter要約配列
  */
-export function summarizeNewsletters(
+export function summarizeNewsletterPage(
   newsletters: NewsletterInput[],
   geminiModel: GeminiModel,
   geminiApiKey: GeminiApiKey
-): DigestSummary {
+): NewsletterSummary[] {
   const text = callGeminiAPI({
     geminiModel,
     geminiApiKey,
@@ -83,61 +51,42 @@ export function summarizeNewsletters(
   });
 
   try {
-    return parseDigestSummary(text);
+    return parseNewsletterSummaries(text);
   } catch {
     throw new Error('Gemini returned invalid JSON');
   }
 }
 
 /**
- * Geminiの応答テキストを `DigestSummary` としてパースし、必須フィールドを検証する。
- *
- * @param text - Gemini APIから返された応答テキスト。
- * @returns 検証済みの `DigestSummary`。
- * @throws 応答テキストがJSONとして不正、または `DigestSummary` の形状を満たさない場合。
+ * Geminiの応答テキストをページ単位のNewsletter要約配列として検証する。
+ * @param text Gemini APIから返された応答テキスト
+ * @returns 検証済みのNewsletter要約配列
  */
-export function parseDigestSummary(text: string): DigestSummary {
+export function parseNewsletterSummaries(text: string): NewsletterSummary[] {
   const value: unknown = JSON.parse(text);
-  if (!isDigestSummary(value)) {
+  if (!isRecord(value) || !Array.isArray(value.summaries)) {
     throw new Error('Gemini returned invalid JSON');
   }
-  return value;
+  if (!value.summaries.every(isNewsletterSummary)) {
+    throw new Error('Gemini returned invalid JSON');
+  }
+  return value.summaries;
 }
 
 function newsletterContent(newsletters: NewsletterInput[]): string {
-  const items = newsletters
+  return newsletters
     .map(
       (newsletter, index) => `## Newsletter ${index + 1}
 件名: ${newsletter.subject}
 送信者: ${newsletter.from}
 本文:
-"""
-${newsletter.body}
-"""`
+${newsletter.body}`
     )
     .join('\n\n');
-
-  return `# 前日に届いたNewsletter
-${items}`;
 }
 
-function isDigestSummary(value: unknown): value is DigestSummary {
-  if (!isRecord(value)) return false;
-  return (
-    Array.isArray(value.actionItems) &&
-    value.actionItems.every(isDigestActionItem) &&
-    Array.isArray(value.categories) &&
-    value.categories.every(isDigestCategory) &&
-    typeof value.overview === 'string'
-  );
-}
-
-function isDigestActionItem(value: unknown): value is DigestActionItem {
-  return isRecord(value) && typeof value.subject === 'string' && typeof value.reason === 'string';
-}
-
-function isDigestCategory(value: unknown): value is DigestCategory {
-  return isRecord(value) && typeof value.label === 'string' && typeof value.count === 'number';
+function isNewsletterSummary(value: unknown): value is NewsletterSummary {
+  return isRecord(value) && typeof value.subject === 'string' && typeof value.summary === 'string';
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

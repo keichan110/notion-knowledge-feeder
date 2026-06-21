@@ -2,9 +2,12 @@ import { getMessagePlainBody, getThreadPermalink, searchThreads } from '../../ca
 import { postMessage } from '../../capabilities/slack';
 import { getGeminiConfig, getGmailDigestConfig } from '../../lib/config';
 import { log } from '../../lib/log';
-import { type DigestSummary, type NewsletterInput, summarizeNewsletters } from './gemini';
+import { type NewsletterInput, type NewsletterSummary, summarizeNewsletterPage } from './gemini';
 
-const CHUNK_SIZE = 10;
+// 1リクエストで要約に同時投入する件数 兼 1スレッド返信あたりの件数。RPMと要約精度のトレードオフ調整用。同じ値で両方を兼ねる。
+const PAGE_SIZE = 5;
+const MAX_SUMMARY_NEWSLETTERS = 70;
+const BODY_EXCERPT_LEN = 200;
 const DIGEST_LABEL = 'newsletter';
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const LOG_MOD = 'gmail-digest';
@@ -50,7 +53,19 @@ export function parseFrom(from: string): ParsedFrom {
 }
 
 /**
- * 前日のNewsletterメールを検索し、Gemini横断要約と件名一覧をSlackへ投稿する。
+ * メール本文をSlack表示用の短い抜粋に整形する。
+ * @param body 整形対象の本文
+ * @param maxLen 最大文字数
+ * @returns ホワイトスペース正規化後、必要に応じて省略記号付きで切り詰めた本文
+ */
+export function truncateBody(body: string, maxLen = BODY_EXCERPT_LEN): string {
+  const normalized = body.replace(/\s+/g, ' ').trim();
+  if (normalized.length <= maxLen) return normalized;
+  return `${normalized.slice(0, maxLen)}…`;
+}
+
+/**
+ * 前日のNewsletterメールを検索し、ページ単位のメール要約をSlackへ投稿する。
  * @returns なし
  */
 export function runGmailDigest(): void {
@@ -65,35 +80,48 @@ export function runGmailDigest(): void {
     throw err;
   }
 
-  let summary: DigestSummary | undefined;
-  if (threads.length > 0) {
+  const count = threads.length;
+  if (count === 0) {
+    postSlackMessage(cfg, buildParentSlackMessage(dateLabel, count));
+    log.info(LOG_MOD, 'done', { count });
+    return;
+  }
+
+  const useFallback = count > MAX_SUMMARY_NEWSLETTERS;
+  const parentTs = postSlackMessage(cfg, buildParentSlackMessage(dateLabel, count, useFallback));
+
+  if (useFallback) {
+    for (const threadChunk of chunk(threads, PAGE_SIZE)) {
+      postSlackMessage(cfg, {
+        text: buildThreadFallbackText(dateLabel, threadChunk),
+        blocks: buildThreadFallbackBlocks(threadChunk),
+        threadTs: parentTs,
+      });
+    }
+    log.info(LOG_MOD, 'done', { count });
+    return;
+  }
+
+  const geminiCfg = getGeminiConfig();
+  for (const threadChunk of chunk(threads, PAGE_SIZE)) {
+    let pageSummaries: NewsletterSummary[];
     try {
-      const geminiCfg = getGeminiConfig();
-      summary = summarizeNewsletters(
-        buildNewsletterInputs(threads),
+      pageSummaries = summarizeNewsletterPage(
+        buildNewsletterInputs(threadChunk),
         geminiCfg.geminiModel,
         geminiCfg.geminiApiKey
       );
     } catch (err) {
-      log.error(LOG_MOD, 'gemini summarize failed', err);
+      log.error(LOG_MOD, 'gemini page summarize failed', err);
       throw err;
     }
+    postSlackMessage(cfg, {
+      text: buildThreadFallbackText(dateLabel, threadChunk),
+      blocks: buildThreadSummaryBlocks(threadChunk, pageSummaries),
+      threadTs: parentTs,
+    });
   }
 
-  const parentMessage = buildParentSlackMessage(dateLabel, threads.length, summary);
-  try {
-    const parentTs = postMessage(cfg.slackBotToken, cfg.slackChannelId, parentMessage);
-    for (const threadChunk of chunk(threads, CHUNK_SIZE)) {
-      postMessage(cfg.slackBotToken, cfg.slackChannelId, {
-        text: buildThreadFallbackText(dateLabel, threadChunk),
-        blocks: buildThreadReplyBlocks(threadChunk),
-        threadTs: parentTs,
-      });
-    }
-  } catch (err) {
-    log.error(LOG_MOD, 'slack post failed', err);
-    throw err;
-  }
   log.info(LOG_MOD, 'done', { count: threads.length });
 }
 
@@ -113,19 +141,19 @@ function fmtDate(date: Date): string {
  * 親Slackメッセージを組み立てる。
  * @param dateLabel 対象日付
  * @param count Newsletter件数
- * @param summary Geminiで生成した横断要約。未指定の場合は0件文言を返す
+ * @param fallback 件数超過によりGemini要約を省略する場合はtrue
  * @returns Slack投稿パラメータ
  */
 function buildParentSlackMessage(
   dateLabel: string,
   count: number,
-  summary?: DigestSummary
+  fallback = false
 ): {
   text: string;
   blocks: unknown[];
 } {
   const header = `📬 ${dateLabel} のメールダイジェスト`;
-  if (!summary) {
+  if (count === 0) {
     return {
       text: `${header}\nメールは届きませんでした`,
       blocks: [
@@ -152,34 +180,17 @@ function buildParentSlackMessage(
     },
   ];
 
-  if (summary.actionItems.length > 0) {
+  if (fallback) {
     blocks.push({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `*⚠️ 対応が必要*\n${summary.actionItems
-          .map((item) => `• *${escapeMrkdwn(item.subject)}* — ${escapeMrkdwn(item.reason)}`)
-          .join('\n')}`,
-      },
+      type: 'context',
+      elements: [
+        {
+          type: 'mrkdwn',
+          text: '件数が多いため要約は省略し本文冒頭のみ表示します',
+        },
+      ],
     });
   }
-
-  if (summary.categories.length > 0) {
-    blocks.push({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `*📊 種類別*\n${summary.categories
-          .map((category) => `${escapeMrkdwn(category.label)} ${category.count}件`)
-          .join(' / ')}`,
-      },
-    });
-  }
-
-  blocks.push({
-    type: 'section',
-    text: { type: 'mrkdwn', text: `*📝 まとめ*\n${escapeMrkdwn(summary.overview)}` },
-  });
 
   return {
     text: `${header}\n${count}件`,
@@ -188,16 +199,21 @@ function buildParentSlackMessage(
 }
 
 /**
- * スレッド返信のBlock Kit blocksを組み立てる。
+ * Gemini要約版スレッド返信のBlock Kit blocksを組み立てる。
  * @param threads ダイジェスト対象のGmailスレッド配列
+ * @param summaries ページ内メールに対応するGemini要約配列
  * @returns Slack Block Kit blocks
  */
-function buildThreadReplyBlocks(threads: GoogleAppsScript.Gmail.GmailThread[]): unknown[] {
-  return threads.flatMap((thread) => {
+function buildThreadSummaryBlocks(
+  threads: GoogleAppsScript.Gmail.GmailThread[],
+  summaries: NewsletterSummary[]
+): unknown[] {
+  return threads.flatMap((thread, index) => {
     const msg = thread.getMessages()[0];
     const from = parseFrom(msg.getFrom());
     const subject = escapeMrkdwn(msg.getSubject());
     const sender = buildSenderText(from);
+    const summary = escapeMrkdwn(summaries[index]?.summary ?? '');
 
     return [
       {
@@ -206,7 +222,39 @@ function buildThreadReplyBlocks(threads: GoogleAppsScript.Gmail.GmailThread[]): 
       },
       {
         type: 'section',
-        text: { type: 'mrkdwn', text: `*${subject}*` },
+        text: { type: 'mrkdwn', text: `*${subject}*\n${summary}` },
+        accessory: {
+          type: 'button',
+          text: { type: 'plain_text', text: 'メールを開く', emoji: true },
+          url: getThreadPermalink(thread),
+        },
+      },
+      { type: 'divider' },
+    ];
+  });
+}
+
+/**
+ * 本文抜粋版スレッド返信のBlock Kit blocksを組み立てる。
+ * @param threads ダイジェスト対象のGmailスレッド配列
+ * @returns Slack Block Kit blocks
+ */
+function buildThreadFallbackBlocks(threads: GoogleAppsScript.Gmail.GmailThread[]): unknown[] {
+  return threads.flatMap((thread) => {
+    const msg = thread.getMessages()[0];
+    const from = parseFrom(msg.getFrom());
+    const subject = escapeMrkdwn(msg.getSubject());
+    const sender = buildSenderText(from);
+    const excerpt = escapeMrkdwn(truncateBody(getMessagePlainBody(msg), BODY_EXCERPT_LEN));
+
+    return [
+      {
+        type: 'context',
+        elements: [{ type: 'mrkdwn', text: sender }],
+      },
+      {
+        type: 'section',
+        text: { type: 'mrkdwn', text: `*${subject}*\n${excerpt}` },
         accessory: {
           type: 'button',
           text: { type: 'plain_text', text: 'メールを開く', emoji: true },
@@ -248,6 +296,18 @@ function buildNewsletterInputs(threads: GoogleAppsScript.Gmail.GmailThread[]): N
       body: getMessagePlainBody(msg),
     };
   });
+}
+
+function postSlackMessage(
+  cfg: ReturnType<typeof getGmailDigestConfig>,
+  params: Parameters<typeof postMessage>[2]
+): string {
+  try {
+    return postMessage(cfg.slackBotToken, cfg.slackChannelId, params);
+  } catch (err) {
+    log.error(LOG_MOD, 'slack post failed', err);
+    throw err;
+  }
 }
 
 /**
