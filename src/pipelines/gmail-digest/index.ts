@@ -117,18 +117,15 @@ function buildParentSlackMessage(
   text: string;
   blocks: unknown[];
 } {
-  const escapedDateLabel = escapeMrkdwn(dateLabel);
-  const summary =
-    count === 0
-      ? `*${escapedDateLabel}* ・ Newsletterは届きませんでした`
-      : `*${escapedDateLabel}* ・ ${count}件`;
+  const header = `📬 ${dateLabel} のメールダイジェスト`;
+  const summary = count === 0 ? 'メールは届きませんでした' : `${count}件`;
 
   return {
-    text: `📬 昨日のNewsletter\n${summary}`,
+    text: `${header}\n${summary}`,
     blocks: [
       {
         type: 'header',
-        text: { type: 'plain_text', text: '📬 昨日のNewsletter', emoji: true },
+        text: { type: 'plain_text', text: header, emoji: true },
       },
       {
         type: 'section',
@@ -153,6 +150,10 @@ function buildThreadReplyBlocks(threads: GoogleAppsScript.Gmail.GmailThread[]): 
 
     return [
       {
+        type: 'context',
+        elements: [{ type: 'mrkdwn', text: sender }],
+      },
+      {
         type: 'section',
         text: { type: 'mrkdwn', text: `*${subject}*\n${body}` },
         accessory: {
@@ -160,10 +161,6 @@ function buildThreadReplyBlocks(threads: GoogleAppsScript.Gmail.GmailThread[]): 
           text: { type: 'plain_text', text: 'メールを開く', emoji: true },
           url: getThreadPermalink(thread),
         },
-      },
-      {
-        type: 'context',
-        elements: [{ type: 'mrkdwn', text: sender }],
       },
       { type: 'divider' },
     ];
@@ -183,7 +180,7 @@ function buildThreadFallbackText(
   const subjects = threads
     .map((thread) => escapeMrkdwn(thread.getMessages()[0].getSubject()))
     .join(', ');
-  return `📬 昨日のNewsletter ${escapeMrkdwn(dateLabel)} 詳細: ${subjects}`;
+  return `📬 ${escapeMrkdwn(dateLabel)} のメールダイジェスト 詳細: ${subjects}`;
 }
 
 /**
