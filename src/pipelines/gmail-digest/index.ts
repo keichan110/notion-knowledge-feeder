@@ -5,24 +5,34 @@ import { log } from '../../lib/log';
 
 const CHUNK_SIZE = 10;
 const DIGEST_LABEL = 'newsletter';
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const LOG_MOD = 'gmail-digest';
+// 集計ウィンドウの境界時刻（JST）。トリガーが発火しうる最も早い時刻に合わせて固定する。
+const WINDOW_BOUNDARY_HOUR = 7;
 
-export type YesterdayWindow = { after: string; before: string };
+export type DigestWindow = { after: number; before: number; dateLabel: string };
 export type ParsedFrom = { name: string; email: string };
 
 /**
- * 指定時刻を基準にJSTで前日分のGmail検索日付範囲を返す。
+ * 指定時刻を基準にJSTで前日7時から当日7時までのGmail検索範囲を返す。
  * @param now 基準時刻
- * @returns Gmail検索クエリに渡すafter/before日付
+ * @returns Gmail検索のepoch秒境界(after/before)と表示用の前日日付ラベル
  */
-export function getYesterdayWindow(now: Date): YesterdayWindow {
-  const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+export function getDigestWindow(now: Date): DigestWindow {
   const jstNow = new Date(now.getTime() + JST_OFFSET_MS);
   const todayJst = new Date(
     Date.UTC(jstNow.getUTCFullYear(), jstNow.getUTCMonth(), jstNow.getUTCDate())
   );
+  const todayJstMidnightMs = todayJst.getTime() - JST_OFFSET_MS;
+  const beforeMs = todayJstMidnightMs + WINDOW_BOUNDARY_HOUR * 60 * 60 * 1000;
+  const afterMs = beforeMs - 24 * 60 * 60 * 1000;
   const yesterdayJst = new Date(todayJst.getTime() - 24 * 60 * 60 * 1000);
-  return { after: fmtDate(yesterdayJst), before: fmtDate(todayJst) };
+
+  return {
+    after: Math.floor(afterMs / 1000),
+    before: Math.floor(beforeMs / 1000),
+    dateLabel: fmtDate(yesterdayJst),
+  };
 }
 
 /**
@@ -56,8 +66,8 @@ export function parseFrom(from: string): ParsedFrom {
  */
 export function runGmailDigest(): void {
   const cfg = getGmailDigestConfig();
-  const { after, before } = getYesterdayWindow(new Date());
-  log.info(LOG_MOD, 'start', { after, before, label: DIGEST_LABEL });
+  const { after, before, dateLabel } = getDigestWindow(new Date());
+  log.info(LOG_MOD, 'start', { after, before, dateLabel, label: DIGEST_LABEL });
   let threads: GoogleAppsScript.Gmail.GmailThread[];
   try {
     threads = searchThreads(`label:${DIGEST_LABEL} after:${after} before:${before}`);
@@ -65,12 +75,12 @@ export function runGmailDigest(): void {
     log.error(LOG_MOD, 'gmail search failed', err);
     throw err;
   }
-  const parentMessage = buildParentSlackMessage(after, threads.length);
+  const parentMessage = buildParentSlackMessage(dateLabel, threads.length);
   try {
     const parentTs = postMessage(cfg.slackBotToken, cfg.slackChannelId, parentMessage);
     for (const threadChunk of chunk(threads, CHUNK_SIZE)) {
       postMessage(cfg.slackBotToken, cfg.slackChannelId, {
-        text: buildThreadFallbackText(after, threadChunk),
+        text: buildThreadFallbackText(dateLabel, threadChunk),
         blocks: buildThreadReplyBlocks(threadChunk),
         threadTs: parentTs,
       });
@@ -96,22 +106,22 @@ function fmtDate(date: Date): string {
 
 /**
  * 親Slackメッセージを組み立てる。
- * @param after 対象日付
+ * @param dateLabel 対象日付
  * @param count Newsletter件数
  * @returns Slack投稿パラメータ
  */
 function buildParentSlackMessage(
-  after: string,
+  dateLabel: string,
   count: number
 ): {
   text: string;
   blocks: unknown[];
 } {
-  const escapedAfter = escapeMrkdwn(after);
+  const escapedDateLabel = escapeMrkdwn(dateLabel);
   const summary =
     count === 0
-      ? `*${escapedAfter}* ・ Newsletterは届きませんでした`
-      : `*${escapedAfter}* ・ ${count}件`;
+      ? `*${escapedDateLabel}* ・ Newsletterは届きませんでした`
+      : `*${escapedDateLabel}* ・ ${count}件`;
 
   return {
     text: `📬 昨日のNewsletter\n${summary}`,
@@ -162,18 +172,18 @@ function buildThreadReplyBlocks(threads: GoogleAppsScript.Gmail.GmailThread[]): 
 
 /**
  * スレッド返信の通知フォールバック本文を組み立てる。
- * @param after 対象日付
+ * @param dateLabel 対象日付
  * @param threads ダイジェスト対象のGmailスレッド配列
  * @returns Slack通知フォールバック本文
  */
 function buildThreadFallbackText(
-  after: string,
+  dateLabel: string,
   threads: GoogleAppsScript.Gmail.GmailThread[]
 ): string {
   const subjects = threads
     .map((thread) => escapeMrkdwn(thread.getMessages()[0].getSubject()))
     .join(', ');
-  return `📬 昨日のNewsletter ${escapeMrkdwn(after)} 詳細: ${subjects}`;
+  return `📬 昨日のNewsletter ${escapeMrkdwn(dateLabel)} 詳細: ${subjects}`;
 }
 
 /**

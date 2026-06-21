@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetConfigCache } from '../../lib/config';
-import { getYesterdayWindow, parseFrom, runGmailDigest, truncateBody } from '.';
+import { getDigestWindow, parseFrom, runGmailDigest, truncateBody } from '.';
 
 const mockResponse = (body: object) => ({
   getContentText: vi.fn().mockReturnValue(JSON.stringify(body)),
@@ -18,25 +18,28 @@ beforeEach(() => {
   vi.mocked(GmailApp.search).mockReset().mockReturnValue([]);
 });
 
-describe('getYesterdayWindow', () => {
-  it('UTC 2026-01-02T05:00:00ZではJST前日範囲を返す', () => {
-    expect(getYesterdayWindow(new Date('2026-01-02T05:00:00Z'))).toEqual({
-      after: '2026/01/01',
-      before: '2026/01/02',
+describe('getDigestWindow', () => {
+  it('UTC 2026-01-02T05:00:00ZではJST前日7時から当日7時の範囲を返す', () => {
+    expect(getDigestWindow(new Date('2026-01-02T05:00:00Z'))).toEqual({
+      after: 1767218400,
+      before: 1767304800,
+      dateLabel: '2026/01/01',
     });
   });
 
-  it('JST 23:59:59では同じJST日の前日範囲を返す', () => {
-    expect(getYesterdayWindow(new Date('2026-01-02T14:59:59Z'))).toEqual({
-      after: '2026/01/01',
-      before: '2026/01/02',
+  it('JST 23:59:59では同じJST日の前日7時から当日7時の範囲を返す', () => {
+    expect(getDigestWindow(new Date('2026-01-02T14:59:59Z'))).toEqual({
+      after: 1767218400,
+      before: 1767304800,
+      dateLabel: '2026/01/01',
     });
   });
 
-  it('JST 翌0:00では翌日の前日範囲を返す', () => {
-    expect(getYesterdayWindow(new Date('2026-01-02T15:00:00Z'))).toEqual({
-      after: '2026/01/02',
-      before: '2026/01/03',
+  it('JST 翌0:00では翌日の前日7時から当日7時の範囲を返す', () => {
+    expect(getDigestWindow(new Date('2026-01-02T15:00:00Z'))).toEqual({
+      after: 1767304800,
+      before: 1767391200,
+      dateLabel: '2026/01/02',
     });
   });
 });
@@ -93,9 +96,7 @@ describe('runGmailDigest', () => {
     runGmailDigest();
 
     expect(GmailApp.search).toHaveBeenCalledWith(
-      expect.stringMatching(
-        /^label:newsletter after:\d{4}\/\d{2}\/\d{2} before:\d{4}\/\d{2}\/\d{2}$/
-      )
+      expect.stringMatching(/^label:newsletter after:\d+ before:\d+$/)
     );
     expect(UrlFetchApp.fetch).toHaveBeenCalledTimes(2);
 
