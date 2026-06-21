@@ -101,17 +101,36 @@ describe('runGmailDigest', () => {
     expect(UrlFetchApp.fetch).toHaveBeenCalledTimes(2);
 
     const parentPayload = getSlackPayload(0);
-    expect(parentPayload.text).toContain('📬 昨日のNewsletter');
+    expect(parentPayload.text).toMatch(/^📬 \d{4}\/\d{2}\/\d{2} のメールダイジェスト\n2件$/);
     expect(parentPayload.text).toContain('2件');
-    expect(parentPayload.blocks).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ type: 'header' }),
-        expect.objectContaining({ type: 'section' }),
-      ])
-    );
+    expect(parentPayload.blocks).toEqual([
+      {
+        type: 'header',
+        text: {
+          type: 'plain_text',
+          text: expect.stringMatching(/^📬 \d{4}\/\d{2}\/\d{2} のメールダイジェスト$/),
+          emoji: true,
+        },
+      },
+      {
+        type: 'section',
+        text: { type: 'mrkdwn', text: '2件' },
+      },
+    ]);
 
     const replyPayload = getSlackPayload(1);
     expect(replyPayload.thread_ts).toBe('123.456');
+    expect(replyPayload.text).toMatch(
+      /^📬 \d{4}\/\d{2}\/\d{2} のメールダイジェスト 詳細: Subject 1, Subject 2$/
+    );
+    expect(replyPayload.blocks?.slice(0, 3)).toEqual([
+      {
+        type: 'context',
+        elements: [{ type: 'mrkdwn', text: '*Sender One* &lt;sender1@example.com&gt;' }],
+      },
+      expect.objectContaining({ type: 'section' }),
+      { type: 'divider' },
+    ]);
     expect(JSON.stringify(replyPayload.blocks)).toContain('Subject 1');
     expect(JSON.stringify(replyPayload.blocks)).toContain('Sender One');
     expect(JSON.stringify(replyPayload.blocks)).toContain('sender1@example.com');
@@ -147,7 +166,9 @@ describe('runGmailDigest', () => {
 
     expect(UrlFetchApp.fetch).toHaveBeenCalledTimes(1);
     const payload = getSlackPayload(0);
-    expect(payload.text).toContain('Newsletterは届きませんでした');
+    expect(payload.text).toMatch(
+      /^📬 \d{4}\/\d{2}\/\d{2} のメールダイジェスト\nメールは届きませんでした$/
+    );
     expect(payload.thread_ts).toBeUndefined();
   });
 });
