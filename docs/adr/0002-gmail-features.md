@@ -24,14 +24,14 @@ ADR-0001 で Capability層 / Pipeline層を分離し、`gmail` / `slack` Capabil
 
 - 独立した Pipeline（`src/pipelines/gmail-label-cleanup/`）。Gmailが **Source 兼 Sink** で、外部Sink（Slack等）への通知は持たない。
 - **対象はアーカイブ済みのみ**（INBOXラベルが外れたメール）。ゴミ箱・迷惑メールは対象外（Gmail検索のデフォルト挙動）。検索は `label:action -in:inbox` / `label:pending -in:inbox` 相当。
-- 対象ラベル（`action` / `pending`）はスクリプトプロパティで管理し、ハードコードしない。
+- 対象ラベル（`action` / `pending`）はスクリプトプロパティで管理し、ハードコードしない。**※その後 `9e5d238` でコード定数 `CLEANUP_LABELS` に変更した（対象ラベルの変更はコードレビューを経るべきため、設定化を廃止）。**
 - 時間駆動で日次実行。
 
 ### 機能2: gmail-digest（ダイジェスト型）
 
 - 独立した Pipeline（`src/pipelines/gmail-digest/`）。当日7時台のトリガーで起動。
-- 対象は**前日ウィンドウ**（前日の暦日・JST 0:00〜23:59）に届いた `Newsletter` ラベルのメール。期間指定は Gmail の日付検索の粒度（暦日）に合わせ、時刻での絞り込みはしない（実装をシンプルに保つ）。
-- 出力は**1通のSlackメッセージに集約**（ダイジェスト型の原則「1回Sinkへ出す」）。メール毎を blocks のセクションとして並べる。本文は `getPlainBody()` でプレーン化して使う。
+- 対象は**前日ウィンドウ**（前日の暦日・JST 0:00〜23:59）に届いた `Newsletter` ラベルのメール。期間指定は Gmail の日付検索の粒度（暦日）に合わせ、時刻での絞り込みはしない（実装をシンプルに保つ）。**※対象ラベルはその後コード定数 `DIGEST_LABEL`（小文字 `newsletter`）に変更した（理由は cleanup と同じ）。※集計期間は ADR-0004 で「前日7:00〜当日7:00（JST）のepoch境界」に変更した（暦日・日付粒度を廃止）。**
+- 出力は**1通のSlackメッセージに集約**（ダイジェスト型の原則「1回Sinkへ出す」）。メール毎を blocks のセクションとして並べる。本文は `getPlainBody()` でプレーン化して使う。**※出力構造は ADR-0003 で「親メッセージ＋スレッド返信（Block Kit・10件単位）」に更新。**
 - **0件のときもSlackへ「0件」を通知**する（ジョブの生存確認）。ただしその場合 Gemini は呼ばない。
 
 段階リリース:
@@ -45,7 +45,7 @@ ADR-0001 で Capability層 / Pipeline層を分離し、`gmail` / `slack` Capabil
 |---|---|
 | `SLACK_BOT_TOKEN` | Slack Web API のBotトークン |
 | `SLACK_CHANNEL_ID` | 投稿先チャンネル |
-| Newsletterラベル名 / 運用ラベル名 | ラベル文字列の設定化（ハードコード回避） |
+| Newsletterラベル名 / 運用ラベル名 | ラベル文字列の設定化（ハードコード回避）※後にコード定数化し、本項のスクリプトプロパティ管理は廃止した（cleanup・digest とも） |
 
 ## Consequences
 

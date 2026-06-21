@@ -1,5 +1,6 @@
 import type { GeminiApiKey, GeminiModel } from '../capabilities/gemini';
 import type { NotionConnectAccessToken, NotionDbId } from '../capabilities/notion';
+import type { SlackBotToken, SlackChannelId } from '../capabilities/slack';
 
 export type Config = {
   secretToken: string;
@@ -7,11 +8,15 @@ export type Config = {
   geminiModel: GeminiModel;
   notionAccessToken: NotionConnectAccessToken;
   notionDbId: NotionDbId;
+  slackBotToken: SlackBotToken;
+  slackChannelId: SlackChannelId;
 };
 
 export type SecretConfig = Pick<Config, 'secretToken'>;
 export type GeminiConfig = Pick<Config, 'geminiApiKey' | 'geminiModel'>;
 export type NotionConfig = Pick<Config, 'notionAccessToken' | 'notionDbId'>;
+export type SlackConfig = Pick<Config, 'slackBotToken' | 'slackChannelId'>;
+export type GmailDigestConfig = Pick<Config, 'slackBotToken' | 'slackChannelId'>;
 
 type ConfigSnapshot = Record<string, string>;
 
@@ -39,6 +44,8 @@ function buildConfig(snapshot: ConfigSnapshot): Config {
     geminiModel: (snapshot.GEMINI_MODEL ?? 'gemini-3.1-flash-lite') as GeminiModel,
     notionAccessToken: snapshot.NOTION_ACCESS_TOKEN ?? '',
     notionDbId: snapshot.NOTION_DB_ID ?? '',
+    slackBotToken: (snapshot.SLACK_BOT_TOKEN ?? '') as SlackBotToken,
+    slackChannelId: (snapshot.SLACK_CHANNEL_ID ?? '') as SlackChannelId,
   };
 }
 
@@ -78,7 +85,17 @@ export function getNotionConfig(): NotionConfig {
 }
 
 /**
+ * Gmailダイジェスト用のSlack投稿先設定をキャッシュ済みスクリプトプロパティから取得する。
+ * @returns Slack投稿先設定
+ */
+export function getGmailDigestConfig(): GmailDigestConfig {
+  const { slackBotToken, slackChannelId } = buildConfig(getConfigSnapshot());
+  return { slackBotToken, slackChannelId };
+}
+
+/**
  * 設定キャッシュをクリアする。テスト用。
+ * @returns なし
  */
 export function resetConfigCache(): void {
   _configSnapshotCache = null;

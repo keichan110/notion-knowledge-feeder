@@ -4,6 +4,7 @@ import {
   processTrendingQiita as runArticleIngestTrendingQiita,
   processTrendingZenn as runArticleIngestTrendingZenn,
 } from './pipelines/article-ingest';
+import { runGmailDigest as runGmailDigestPipeline } from './pipelines/gmail-digest';
 import { runLabelCleanup as runGmailLabelCleanupPipeline } from './pipelines/gmail-label-cleanup';
 
 /**
@@ -45,4 +46,13 @@ export function processPendingArticles(): void {
  */
 export function runGmailLabelCleanup(): void {
   runGmailLabelCleanupPipeline();
+}
+
+/**
+ * 前日のNewsletterメールをSlackにダイジェスト投稿するgmail-digest Pipelineを実行する。
+ * GASタイムトリガー（日次・7時台）から呼び出される。
+ * @returns なし
+ */
+export function runGmailDigest(): void {
+  runGmailDigestPipeline();
 }
