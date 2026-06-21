@@ -25,7 +25,6 @@
 | `NOTION_DB_ID` | ✅ | 保存先 Notion データベースの ID | データベースページを開き、URL の `https://www.notion.so/<workspace>/<database-id>?v=...` の `<database-id>` 部分（ハイフン区切りの 32 文字） |
 | `SLACK_BOT_TOKEN` | ✅※ | Newsletter ダイジェストを投稿する Slack Bot トークン | Slack アプリを作成し Bot User OAuth Token（`xoxb-...`）を取得（詳細は下記） |
 | `SLACK_CHANNEL_ID` | ✅※ | ダイジェストの投稿先 Slack チャンネル ID | 投稿先チャンネルの「チャンネル詳細」最下部、または URL 末尾の `C...`（詳細は下記） |
-| `GMAIL_DIGEST_LABEL` | | ダイジェスト対象の Gmail ラベル名（未設定時は `Newsletter`） | 変更が必要な場合のみ設定（詳細は下記） |
 
 ※ `SLACK_BOT_TOKEN` / `SLACK_CHANNEL_ID` は **Newsletter ダイジェスト機能（`runGmailDigest`）を使う場合に必須**。使わない場合は未設定でも他の機能は動作する。
 
@@ -122,15 +121,6 @@ URL にハイフンが含まれている場合（`abcdef12-3456-7890-abcd-ef1234
 2. 表示されたダイアログ最下部の **「チャンネル ID」**（`C` で始まる文字列）をコピー
 
 ブラウザ版 Slack の場合、URL 末尾の `.../C0123ABCD` の `C0123ABCD` 部分でも確認できます。
-
----
-
-### `GMAIL_DIGEST_LABEL`（省略可）
-
-ダイジェストの集計対象にする Gmail ラベル名です。未設定の場合は `Newsletter` が使われます。
-
-- Gmail 側で対象ラベルを作成し、Newsletter メールに付与しておきます（フィルタによる自動付与を推奨）。
-- 既定の `Newsletter` 以外を使いたい場合のみ、このプロパティにラベル名を設定します。
 
 ---
 

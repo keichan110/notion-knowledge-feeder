@@ -4,6 +4,7 @@ import { getGmailDigestConfig } from '../../lib/config';
 import { log } from '../../lib/log';
 
 const CHUNK_SIZE = 10;
+const DIGEST_LABEL = 'newsletter';
 const LOG_MOD = 'gmail-digest';
 
 export type YesterdayWindow = { after: string; before: string };
@@ -56,10 +57,10 @@ export function parseFrom(from: string): ParsedFrom {
 export function runGmailDigest(): void {
   const cfg = getGmailDigestConfig();
   const { after, before } = getYesterdayWindow(new Date());
-  log.info(LOG_MOD, 'start', { after, before, label: cfg.gmailDigestLabel });
+  log.info(LOG_MOD, 'start', { after, before, label: DIGEST_LABEL });
   let threads: GoogleAppsScript.Gmail.GmailThread[];
   try {
-    threads = searchThreads(`label:${cfg.gmailDigestLabel} after:${after} before:${before}`);
+    threads = searchThreads(`label:${DIGEST_LABEL} after:${after} before:${before}`);
   } catch (err) {
     log.error(LOG_MOD, 'gmail search failed', err);
     throw err;

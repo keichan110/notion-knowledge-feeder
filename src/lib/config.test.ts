@@ -23,7 +23,6 @@ describe('getConfig', () => {
       NOTION_DB_ID: 'db-id',
       SLACK_BOT_TOKEN: 'xoxb-test',
       SLACK_CHANNEL_ID: 'C123456',
-      GMAIL_DIGEST_LABEL: 'Newsletter',
     });
 
     const config = getConfig();
@@ -36,7 +35,6 @@ describe('getConfig', () => {
       notionDbId: 'db-id',
       slackBotToken: 'xoxb-test',
       slackChannelId: 'C123456',
-      gmailDigestLabel: 'Newsletter',
     });
     expect(PropertiesService.getScriptProperties().getProperties).toHaveBeenCalledTimes(1);
   });
@@ -50,7 +48,6 @@ describe('getConfig', () => {
       NOTION_DB_ID: 'db-id',
       SLACK_BOT_TOKEN: 'xoxb-test',
       SLACK_CHANNEL_ID: 'C123456',
-      GMAIL_DIGEST_LABEL: 'Newsletter',
     });
 
     getConfig();
@@ -76,7 +73,6 @@ describe('getConfig', () => {
       notionDbId: '',
       slackBotToken: '',
       slackChannelId: '',
-      gmailDigestLabel: 'Newsletter',
     });
   });
 
@@ -89,7 +85,6 @@ describe('getConfig', () => {
       NOTION_DB_ID: 'db-id',
       SLACK_BOT_TOKEN: 'xoxb-test',
       SLACK_CHANNEL_ID: 'C123456',
-      GMAIL_DIGEST_LABEL: 'Newsletter',
     });
 
     expect(getSecretConfig()).toEqual({
@@ -106,7 +101,6 @@ describe('getConfig', () => {
     expect(getGmailDigestConfig()).toEqual({
       slackBotToken: 'xoxb-test',
       slackChannelId: 'C123456',
-      gmailDigestLabel: 'Newsletter',
     });
     expect(PropertiesService.getScriptProperties().getProperties).toHaveBeenCalledTimes(1);
   });

@@ -11,7 +11,6 @@ beforeEach(() => {
   vi.mocked(PropertiesService.getScriptProperties().getProperties).mockReset().mockReturnValue({
     SLACK_BOT_TOKEN: 'xoxb-test',
     SLACK_CHANNEL_ID: 'C123456',
-    GMAIL_DIGEST_LABEL: 'Newsletter',
   });
   vi.mocked(UrlFetchApp.fetch)
     .mockReset()
@@ -95,7 +94,7 @@ describe('runGmailDigest', () => {
 
     expect(GmailApp.search).toHaveBeenCalledWith(
       expect.stringMatching(
-        /^label:Newsletter after:\d{4}\/\d{2}\/\d{2} before:\d{4}\/\d{2}\/\d{2}$/
+        /^label:newsletter after:\d{4}\/\d{2}\/\d{2} before:\d{4}\/\d{2}\/\d{2}$/
       )
     );
     expect(UrlFetchApp.fetch).toHaveBeenCalledTimes(2);
