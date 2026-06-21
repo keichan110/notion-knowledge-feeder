@@ -1,8 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetConfigCache } from '../../lib/config';
-import { getDigestWindow, parseFrom, runGmailDigest, truncateBody } from '.';
+import { getDigestWindow, parseFrom, runGmailDigest } from '.';
+
+const SLACK_URL = 'https://slack.com/api/chat.postMessage';
+
+const digestSummaryFixture = {
+  actionItems: [{ subject: 'Subject 1', reason: '明日までに回答が必要' }],
+  categories: [
+    { label: 'AI/ML', count: 1 },
+    { label: 'イベント案内', count: 1 },
+  ],
+  overview: '前日のNewsletterはAI関連とイベント案内が中心でした。',
+};
 
 const mockResponse = (body: object) => ({
+  getResponseCode: vi.fn().mockReturnValue(200),
   getContentText: vi.fn().mockReturnValue(JSON.stringify(body)),
 });
 
@@ -11,10 +23,19 @@ beforeEach(() => {
   vi.mocked(PropertiesService.getScriptProperties().getProperties).mockReset().mockReturnValue({
     SLACK_BOT_TOKEN: 'xoxb-test',
     SLACK_CHANNEL_ID: 'C123456',
+    GEMINI_API_KEY: 'gemini-key',
+    GEMINI_MODEL: 'gemini-3.1-flash-lite',
   });
   vi.mocked(UrlFetchApp.fetch)
     .mockReset()
-    .mockReturnValue(mockResponse({ ok: true, ts: '123.456' }) as never);
+    .mockImplementation((url) => {
+      if (String(url).includes('generativelanguage')) {
+        return mockResponse({
+          candidates: [{ content: { parts: [{ text: JSON.stringify(digestSummaryFixture) }] } }],
+        }) as never;
+      }
+      return mockResponse({ ok: true, ts: '123.456' }) as never;
+    });
   vi.mocked(GmailApp.search).mockReset().mockReturnValue([]);
 });
 
@@ -41,25 +62,6 @@ describe('getDigestWindow', () => {
       before: 1767391200,
       dateLabel: '2026/01/02',
     });
-  });
-});
-
-describe('truncateBody', () => {
-  it('200字以下はそのまま返す', () => {
-    expect(truncateBody('短い本文')).toBe('短い本文');
-  });
-
-  it('200字を超える場合は…を付けてトリムする', () => {
-    const long = 'あ'.repeat(201);
-    expect(truncateBody(long)).toBe(`${'あ'.repeat(200)}…`);
-  });
-
-  it('ホワイトスペースを正規化する', () => {
-    expect(truncateBody('hello\n\n  world')).toBe('hello world');
-  });
-
-  it('maxLen を指定できる', () => {
-    expect(truncateBody('abcde', 3)).toBe('abc…');
   });
 });
 
@@ -98,25 +100,16 @@ describe('runGmailDigest', () => {
     expect(GmailApp.search).toHaveBeenCalledWith(
       expect.stringMatching(/^label:newsletter after:\d+ before:\d+$/)
     );
-    expect(UrlFetchApp.fetch).toHaveBeenCalledTimes(2);
+    expect(getGeminiCalls()).toHaveLength(1);
+    expect(getSlackCalls()).toHaveLength(2);
 
     const parentPayload = getSlackPayload(0);
     expect(parentPayload.text).toMatch(/^📬 \d{4}\/\d{2}\/\d{2} のメールダイジェスト\n2件$/);
     expect(parentPayload.text).toContain('2件');
-    expect(parentPayload.blocks).toEqual([
-      {
-        type: 'header',
-        text: {
-          type: 'plain_text',
-          text: expect.stringMatching(/^📬 \d{4}\/\d{2}\/\d{2} のメールダイジェスト$/),
-          emoji: true,
-        },
-      },
-      {
-        type: 'section',
-        text: { type: 'mrkdwn', text: '2件' },
-      },
-    ]);
+    expect(JSON.stringify(parentPayload.blocks)).toContain('⚠️ 対応が必要');
+    expect(JSON.stringify(parentPayload.blocks)).toContain('📊 種類別');
+    expect(JSON.stringify(parentPayload.blocks)).toContain('📝 まとめ');
+    expect(JSON.stringify(parentPayload.blocks)).toContain(digestSummaryFixture.overview);
 
     const replyPayload = getSlackPayload(1);
     expect(replyPayload.thread_ts).toBe('123.456');
@@ -136,6 +129,7 @@ describe('runGmailDigest', () => {
     expect(JSON.stringify(replyPayload.blocks)).toContain('sender1@example.com');
     expect(JSON.stringify(replyPayload.blocks)).toContain('https://mail/1');
     expect(JSON.stringify(replyPayload.blocks)).toContain('メールを開く');
+    expect(JSON.stringify(replyPayload.blocks)).not.toContain('本文1');
   });
 
   it('11件のNewsletterスレッドを親1回とスレッド返信2回にチャンク分割する', () => {
@@ -152,7 +146,8 @@ describe('runGmailDigest', () => {
 
     runGmailDigest();
 
-    expect(UrlFetchApp.fetch).toHaveBeenCalledTimes(3);
+    expect(getGeminiCalls()).toHaveLength(1);
+    expect(getSlackCalls()).toHaveLength(3);
     expect(getSlackPayload(1).thread_ts).toBe('123.456');
     expect(getSlackPayload(2).thread_ts).toBe('123.456');
     expect(getSlackPayload(1).blocks).toHaveLength(30);
@@ -164,7 +159,8 @@ describe('runGmailDigest', () => {
 
     runGmailDigest();
 
-    expect(UrlFetchApp.fetch).toHaveBeenCalledTimes(1);
+    expect(getGeminiCalls()).toHaveLength(0);
+    expect(getSlackCalls()).toHaveLength(1);
     const payload = getSlackPayload(0);
     expect(payload.text).toMatch(
       /^📬 \d{4}\/\d{2}\/\d{2} のメールダイジェスト\nメールは届きませんでした$/
@@ -196,6 +192,16 @@ function getSlackPayload(index: number): {
   blocks?: unknown[];
   thread_ts?: string;
 } {
-  const [, options] = vi.mocked(UrlFetchApp.fetch).mock.calls[index];
+  const [, options] = getSlackCalls()[index];
   return JSON.parse((options as { payload: string }).payload);
+}
+
+function getSlackCalls() {
+  return vi.mocked(UrlFetchApp.fetch).mock.calls.filter(([url]) => String(url) === SLACK_URL);
+}
+
+function getGeminiCalls() {
+  return vi
+    .mocked(UrlFetchApp.fetch)
+    .mock.calls.filter(([url]) => String(url).includes('generativelanguage'));
 }

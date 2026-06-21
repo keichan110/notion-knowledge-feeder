@@ -1,7 +1,8 @@
 import { getMessagePlainBody, getThreadPermalink, searchThreads } from '../../capabilities/gmail';
 import { postMessage } from '../../capabilities/slack';
-import { getGmailDigestConfig } from '../../lib/config';
+import { getGeminiConfig, getGmailDigestConfig } from '../../lib/config';
 import { log } from '../../lib/log';
+import { type DigestSummary, type NewsletterInput, summarizeNewsletters } from './gemini';
 
 const CHUNK_SIZE = 10;
 const DIGEST_LABEL = 'newsletter';
@@ -36,18 +37,6 @@ export function getDigestWindow(now: Date): DigestWindow {
 }
 
 /**
- * 本文テキストのホワイトスペースを正規化し、指定文字数でトリムする。
- * @param body プレーンテキストの本文
- * @param maxLen トリムする最大文字数（デフォルト: 200）
- * @returns 正規化・トリム済みの本文冒頭
- */
-export function truncateBody(body: string, maxLen = 200): string {
-  const normalized = body.replace(/\s+/g, ' ').trim();
-  if (normalized.length <= maxLen) return normalized;
-  return `${normalized.slice(0, maxLen)}…`;
-}
-
-/**
  * GmailのFrom文字列を表示名とメールアドレスに分離する。
  * @param from GmailMessage.getFrom() が返すFrom文字列
  * @returns 表示名とメールアドレス
@@ -61,7 +50,7 @@ export function parseFrom(from: string): ParsedFrom {
 }
 
 /**
- * 前日のNewsletterメールを検索し、件名・送信者・本文冒頭をSlackスレッドへ投稿する。
+ * 前日のNewsletterメールを検索し、Gemini横断要約と件名一覧をSlackへ投稿する。
  * @returns なし
  */
 export function runGmailDigest(): void {
@@ -75,7 +64,23 @@ export function runGmailDigest(): void {
     log.error(LOG_MOD, 'gmail search failed', err);
     throw err;
   }
-  const parentMessage = buildParentSlackMessage(dateLabel, threads.length);
+
+  let summary: DigestSummary | undefined;
+  if (threads.length > 0) {
+    try {
+      const geminiCfg = getGeminiConfig();
+      summary = summarizeNewsletters(
+        buildNewsletterInputs(threads),
+        geminiCfg.geminiModel,
+        geminiCfg.geminiApiKey
+      );
+    } catch (err) {
+      log.error(LOG_MOD, 'gemini summarize failed', err);
+      throw err;
+    }
+  }
+
+  const parentMessage = buildParentSlackMessage(dateLabel, threads.length, summary);
   try {
     const parentTs = postMessage(cfg.slackBotToken, cfg.slackChannelId, parentMessage);
     for (const threadChunk of chunk(threads, CHUNK_SIZE)) {
@@ -108,30 +113,77 @@ function fmtDate(date: Date): string {
  * 親Slackメッセージを組み立てる。
  * @param dateLabel 対象日付
  * @param count Newsletter件数
+ * @param summary Geminiで生成した横断要約。未指定の場合は0件文言を返す
  * @returns Slack投稿パラメータ
  */
 function buildParentSlackMessage(
   dateLabel: string,
-  count: number
+  count: number,
+  summary?: DigestSummary
 ): {
   text: string;
   blocks: unknown[];
 } {
   const header = `📬 ${dateLabel} のメールダイジェスト`;
-  const summary = count === 0 ? 'メールは届きませんでした' : `${count}件`;
+  if (!summary) {
+    return {
+      text: `${header}\nメールは届きませんでした`,
+      blocks: [
+        {
+          type: 'header',
+          text: { type: 'plain_text', text: header, emoji: true },
+        },
+        {
+          type: 'section',
+          text: { type: 'mrkdwn', text: 'メールは届きませんでした' },
+        },
+      ],
+    };
+  }
+
+  const blocks: unknown[] = [
+    {
+      type: 'header',
+      text: { type: 'plain_text', text: header, emoji: true },
+    },
+    {
+      type: 'section',
+      text: { type: 'mrkdwn', text: `${count}件` },
+    },
+  ];
+
+  if (summary.actionItems.length > 0) {
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*⚠️ 対応が必要*\n${summary.actionItems
+          .map((item) => `• *${escapeMrkdwn(item.subject)}* — ${escapeMrkdwn(item.reason)}`)
+          .join('\n')}`,
+      },
+    });
+  }
+
+  if (summary.categories.length > 0) {
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*📊 種類別*\n${summary.categories
+          .map((category) => `${escapeMrkdwn(category.label)} ${category.count}件`)
+          .join(' / ')}`,
+      },
+    });
+  }
+
+  blocks.push({
+    type: 'section',
+    text: { type: 'mrkdwn', text: `*📝 まとめ*\n${escapeMrkdwn(summary.overview)}` },
+  });
 
   return {
-    text: `${header}\n${summary}`,
-    blocks: [
-      {
-        type: 'header',
-        text: { type: 'plain_text', text: header, emoji: true },
-      },
-      {
-        type: 'section',
-        text: { type: 'mrkdwn', text: summary },
-      },
-    ],
+    text: `${header}\n${count}件`,
+    blocks,
   };
 }
 
@@ -144,7 +196,6 @@ function buildThreadReplyBlocks(threads: GoogleAppsScript.Gmail.GmailThread[]): 
   return threads.flatMap((thread) => {
     const msg = thread.getMessages()[0];
     const from = parseFrom(msg.getFrom());
-    const body = escapeMrkdwn(truncateBody(getMessagePlainBody(msg), 200));
     const subject = escapeMrkdwn(msg.getSubject());
     const sender = buildSenderText(from);
 
@@ -155,7 +206,7 @@ function buildThreadReplyBlocks(threads: GoogleAppsScript.Gmail.GmailThread[]): 
       },
       {
         type: 'section',
-        text: { type: 'mrkdwn', text: `*${subject}*\n${body}` },
+        text: { type: 'mrkdwn', text: `*${subject}*` },
         accessory: {
           type: 'button',
           text: { type: 'plain_text', text: 'メールを開く', emoji: true },
@@ -181,6 +232,22 @@ function buildThreadFallbackText(
     .map((thread) => escapeMrkdwn(thread.getMessages()[0].getSubject()))
     .join(', ');
   return `📬 ${escapeMrkdwn(dateLabel)} のメールダイジェスト 詳細: ${subjects}`;
+}
+
+/**
+ * Gemini入力用のNewsletter配列をGmailスレッドから組み立てる。
+ * @param threads ダイジェスト対象のGmailスレッド配列
+ * @returns Newsletter入力配列
+ */
+function buildNewsletterInputs(threads: GoogleAppsScript.Gmail.GmailThread[]): NewsletterInput[] {
+  return threads.map((thread) => {
+    const msg = thread.getMessages()[0];
+    return {
+      subject: msg.getSubject(),
+      from: msg.getFrom(),
+      body: getMessagePlainBody(msg),
+    };
+  });
 }
 
 /**
