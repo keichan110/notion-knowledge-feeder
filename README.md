@@ -1,4 +1,4 @@
-# notion-knowledge-feeder
+# sherpia
 
 iOSショートカットから送られたURLをGemini APIで要約し、NotionのナレッジDBに自動保存するGoogle Apps Scriptプロジェクト。
 
@@ -49,7 +49,7 @@ script.google.com のURLに含まれる `/d/<scriptId>/` の値を `.clasp.json`
 **新規プロジェクトを作成する場合：**
 
 ```sh
-pnpm exec clasp create-script --title "notion-knowledge-feeder" --type standalone --rootDir dist
+pnpm exec clasp create-script --title "sherpia" --type standalone --rootDir dist
 ```
 
 実行後、`.clasp.json` にスクリプトIDが自動で書き込まれます。
@@ -99,7 +99,7 @@ GitHub リポジトリの **Settings → Secrets and variables → Actions** に
 ## ディレクトリ構成
 
 ```
-notion-knowledge-feeder/
+sherpia/
 ├── src/
 │   ├── index.ts              # エントリーポイント（doPost / testRun をglobalにexport）
 │   ├── config.ts             # スクリプトプロパティの読み込みと Config 型定義
