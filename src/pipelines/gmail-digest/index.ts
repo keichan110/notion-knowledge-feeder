@@ -2,6 +2,7 @@ import { getMessagePlainBody, getThreadPermalink, searchThreads } from '../../ca
 import { postMessage } from '../../capabilities/slack';
 import { getGeminiConfig, getGmailDigestConfig } from '../../lib/config';
 import { log } from '../../lib/log';
+import { maskPii } from '../../lib/mask';
 import { type NewsletterInput, type NewsletterSummary, summarizeNewsletterPage } from './gemini';
 
 // 1リクエストで要約に同時投入する件数 兼 1スレッド返信あたりの件数。RPMと要約精度のトレードオフ調整用。同じ値で両方を兼ねる。
@@ -293,7 +294,7 @@ function buildNewsletterInputs(threads: GoogleAppsScript.Gmail.GmailThread[]): N
     return {
       subject: msg.getSubject(),
       from: msg.getFrom(),
-      body: getMessagePlainBody(msg),
+      body: maskPii(getMessagePlainBody(msg)),
     };
   });
 }
