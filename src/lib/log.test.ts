@@ -34,6 +34,11 @@ describe('log', () => {
       log.warn('myModule', 'warning', { code: 404 });
       expect(console.warn).toHaveBeenCalledWith('[myModule] warning | {"code":404}');
     });
+
+    it('Error オブジェクトのメッセージを付加する', () => {
+      log.warn('myModule', 'warning', new Error('something went wrong'));
+      expect(console.warn).toHaveBeenCalledWith('[myModule] warning Error: something went wrong');
+    });
   });
 
   describe('error', () => {

@@ -5,8 +5,8 @@ export const log = {
   /** @param mod モジュール名 @param msg メッセージ @param ctx 追加コンテキスト */
   info: (mod: string, msg: string, ctx?: object): void => console.log(fmt(mod, msg, ctx)),
 
-  /** @param mod モジュール名 @param msg メッセージ @param ctx 追加コンテキスト */
-  warn: (mod: string, msg: string, ctx?: object): void => console.warn(fmt(mod, msg, ctx)),
+  /** @param mod モジュール名 @param msg メッセージ @param ctx 追加コンテキストまたはエラー */
+  warn: (mod: string, msg: string, ctx?: unknown): void => console.warn(fmt(mod, msg, ctx)),
 
   /**
    * @param mod モジュール名 @param msg メッセージ @param err 発生したエラー
@@ -16,5 +16,10 @@ export const log = {
     console.error(`${fmt(mod, msg, ctx)}${err !== undefined ? ` ${String(err)}` : ''}`),
 };
 
-const fmt = (module: string, msg: string, ctx?: object): string =>
-  `[${module}] ${msg}${ctx ? ` | ${JSON.stringify(ctx)}` : ''}`;
+const fmt = (module: string, msg: string, ctx?: unknown): string => {
+  if (ctx === undefined) return `[${module}] ${msg}`;
+  if (typeof ctx === 'object' && ctx !== null && !(ctx instanceof Error)) {
+    return `[${module}] ${msg} | ${JSON.stringify(ctx)}`;
+  }
+  return `[${module}] ${msg} ${String(ctx)}`;
+};
