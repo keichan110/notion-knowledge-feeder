@@ -25,10 +25,15 @@ beforeEach(() => {
     SLACK_CHANNEL_ID: 'C123456',
     GEMINI_API_KEY: 'gemini-key',
     GEMINI_MODEL: 'gemini-3.1-flash-lite',
+    DLP_PROJECT_ID: 'dlp-project',
   });
   vi.mocked(UrlFetchApp.fetch)
     .mockReset()
-    .mockImplementation((url) => {
+    .mockImplementation((url, options) => {
+      if (String(url).includes('dlp.googleapis.com')) {
+        const payload = JSON.parse(String((options as { payload: string }).payload));
+        return mockResponse({ item: { value: `[DLP]${payload.item.value}` } }) as never;
+      }
       if (String(url).includes('generativelanguage')) {
         return mockResponse({
           candidates: [{ content: { parts: [{ text: JSON.stringify(geminiSummariesFixture) }] } }],
@@ -109,7 +114,12 @@ describe('truncateBody', () => {
 describe('runGmailDigest', () => {
   it('2件のNewsletterスレッドをGemini 1回と親1回とページ返信1回でSlackに投稿する', () => {
     vi.mocked(GmailApp.search).mockReturnValue([
-      createThread('Subject 1', '"Sender One" <sender1@example.com>', '本文1', 'https://mail/1'),
+      createThread(
+        'Subject 1',
+        '"Sender One" <sender1@example.com>',
+        '本文1 https://example.com/?token=secret user@example.com',
+        'https://mail/1'
+      ),
       createThread('Subject 2', 'sender2@example.com', '本文2', 'https://mail/2'),
     ]);
 
@@ -119,7 +129,22 @@ describe('runGmailDigest', () => {
       expect.stringMatching(/^label:newsletter after:\d+ before:\d+$/)
     );
     expect(getGeminiCalls()).toHaveLength(1);
+    expect(getDlpCalls()).toHaveLength(2);
     expect(getSlackCalls()).toHaveLength(2);
+
+    const firstDlpPayload = getDlpPayload(0);
+    expect(firstDlpPayload.item.value).toContain('[リンク]');
+    expect(firstDlpPayload.item.value).not.toContain('https://example.com');
+    expect(firstDlpPayload.inspectConfig.infoTypes).toContainEqual({ name: 'JAPAN_PASSPORT' });
+    expect(firstDlpPayload.inspectConfig.infoTypes).not.toContainEqual({ name: 'DATE' });
+    expect(firstDlpPayload.inspectConfig.minLikelihood).toBe('POSSIBLE');
+
+    const geminiUserContent = getGeminiUserContent(0);
+    expect(geminiUserContent).toContain('件名: Subject 1');
+    expect(geminiUserContent).toContain('送信者: "Sender One" <sender1@example.com>');
+    expect(geminiUserContent).toContain('[DLP]本文1');
+    expect(geminiUserContent).not.toContain('https://example.com');
+    expect(geminiUserContent).not.toContain('user@example.com');
 
     const parentPayload = getSlackPayload(0);
     expect(parentPayload.text).toMatch(/^📬 \d{4}\/\d{2}\/\d{2} のメールダイジェスト\n2件$/);
@@ -160,6 +185,7 @@ describe('runGmailDigest', () => {
     runGmailDigest();
 
     expect(getGeminiCalls()).toHaveLength(0);
+    expect(getDlpCalls()).toHaveLength(0);
     expect(getSlackCalls()).toHaveLength(1);
     const payload = getSlackPayload(0);
     expect(payload.text).toMatch(
@@ -177,6 +203,7 @@ describe('runGmailDigest', () => {
     runGmailDigest();
 
     expect(getGeminiCalls()).toHaveLength(0);
+    expect(getDlpCalls()).toHaveLength(0);
     expect(getSlackCalls()).toHaveLength(16);
 
     const parentPayload = getSlackPayload(0);
@@ -190,6 +217,32 @@ describe('runGmailDigest', () => {
       truncateBody('長い本文 '.repeat(50))
     );
     expect(JSON.stringify(firstReplyPayload.blocks)).toContain('メールを開く');
+  });
+
+  it('DLPマスク失敗時は本文を除外した入力でGemini要約を継続する', () => {
+    vi.mocked(GmailApp.search).mockReturnValue([
+      createThread('Subject 1', 'sender1@example.com', '本文1', 'https://mail/1'),
+    ]);
+    vi.mocked(UrlFetchApp.fetch).mockImplementation((url) => {
+      if (String(url).includes('dlp.googleapis.com')) {
+        return {
+          getResponseCode: vi.fn().mockReturnValue(500),
+          getContentText: vi.fn().mockReturnValue(''),
+        } as never;
+      }
+      if (String(url).includes('generativelanguage')) {
+        return mockResponse({
+          candidates: [{ content: { parts: [{ text: JSON.stringify(geminiSummariesFixture) }] } }],
+        }) as never;
+      }
+      return mockResponse({ ok: true, ts: '123.456' }) as never;
+    });
+
+    runGmailDigest();
+
+    expect(getDlpCalls()).toHaveLength(1);
+    expect(getGeminiCalls()).toHaveLength(1);
+    expect(getGeminiUserContent(0)).toContain('[本文のマスクに失敗したため除外しました]');
   });
 });
 
@@ -243,4 +296,24 @@ function getGeminiCalls() {
   return vi
     .mocked(UrlFetchApp.fetch)
     .mock.calls.filter(([url]) => String(url).includes('generativelanguage'));
+}
+
+function getDlpCalls() {
+  return vi
+    .mocked(UrlFetchApp.fetch)
+    .mock.calls.filter(([url]) => String(url).includes('dlp.googleapis.com'));
+}
+
+function getDlpPayload(index: number): {
+  item: { value: string };
+  inspectConfig: { infoTypes: { name: string }[]; minLikelihood: string };
+} {
+  const [, options] = getDlpCalls()[index];
+  return JSON.parse((options as { payload: string }).payload);
+}
+
+function getGeminiUserContent(index: number): string {
+  const [, options] = getGeminiCalls()[index];
+  const payload = JSON.parse((options as { payload: string }).payload);
+  return payload.contents[0].parts[0].text;
 }

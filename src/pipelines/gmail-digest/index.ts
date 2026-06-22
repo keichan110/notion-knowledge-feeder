@@ -1,6 +1,7 @@
+import { deidentifyText } from '../../capabilities/dlp';
 import { getMessagePlainBody, getThreadPermalink, searchThreads } from '../../capabilities/gmail';
 import { postMessage } from '../../capabilities/slack';
-import { getGeminiConfig, getGmailDigestConfig } from '../../lib/config';
+import { getDlpConfig, getGeminiConfig, getGmailDigestConfig } from '../../lib/config';
 import { log } from '../../lib/log';
 import { maskPii } from '../../lib/mask';
 import { type NewsletterInput, type NewsletterSummary, summarizeNewsletterPage } from './gemini';
@@ -14,6 +15,28 @@ const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const LOG_MOD = 'gmail-digest';
 // 集計ウィンドウの境界時刻（JST）。トリガーが発火しうる最も早い時刻に合わせて固定する。
 const WINDOW_BOUNDARY_HOUR = 7;
+const DLP_INFO_TYPES = [
+  'PERSON_NAME',
+  'EMAIL_ADDRESS',
+  'PHONE_NUMBER',
+  'STREET_ADDRESS',
+  'LOCATION',
+  'AGE',
+  'DATE_OF_BIRTH',
+  'GENDER',
+  'CREDIT_CARD_NUMBER',
+  'IBAN_CODE',
+  'SWIFT_CODE',
+  'IP_ADDRESS',
+  'MAC_ADDRESS',
+  'JAPAN_INDIVIDUAL_NUMBER',
+  'JAPAN_BANK_ACCOUNT',
+  'JAPAN_DRIVERS_LICENSE_NUMBER',
+  'JAPAN_PASSPORT',
+  'JAPAN_CORPORATE_NUMBER',
+];
+const DLP_MIN_LIKELIHOOD = 'POSSIBLE';
+const MASK_FAILED_BODY = '[本文のマスクに失敗したため除外しました]';
 
 export type DigestWindow = { after: number; before: number; dateLabel: string };
 export type ParsedFrom = { name: string; email: string };
@@ -104,11 +127,13 @@ export function runGmailDigest(): void {
   }
 
   const geminiCfg = getGeminiConfig();
+  const accessToken = ScriptApp.getOAuthToken();
+  const { dlpProjectId } = getDlpConfig();
   for (const threadChunk of chunk(threads, PAGE_SIZE)) {
     let pageSummaries: NewsletterSummary[];
     try {
       pageSummaries = summarizeNewsletterPage(
-        buildNewsletterInputs(threadChunk),
+        buildNewsletterInputs(threadChunk, dlpProjectId, accessToken),
         geminiCfg.geminiModel,
         geminiCfg.geminiApiKey
       );
@@ -286,15 +311,35 @@ function buildThreadFallbackText(
 /**
  * Gemini入力用のNewsletter配列をGmailスレッドから組み立てる。
  * @param threads ダイジェスト対象のGmailスレッド配列
+ * @param dlpProjectId DLP APIを呼び出すGoogle CloudプロジェクトID
+ * @param accessToken DLP API呼び出しに使うOAuthアクセストークン
  * @returns Newsletter入力配列
  */
-function buildNewsletterInputs(threads: GoogleAppsScript.Gmail.GmailThread[]): NewsletterInput[] {
+function buildNewsletterInputs(
+  threads: GoogleAppsScript.Gmail.GmailThread[],
+  dlpProjectId: string,
+  accessToken: string
+): NewsletterInput[] {
   return threads.map((thread) => {
     const msg = thread.getMessages()[0];
+    const regexMasked = maskPii(getMessagePlainBody(msg));
+    let body: string;
+    try {
+      body = deidentifyText({
+        accessToken,
+        projectId: dlpProjectId,
+        text: regexMasked,
+        infoTypes: DLP_INFO_TYPES,
+        minLikelihood: DLP_MIN_LIKELIHOOD,
+      });
+    } catch (err) {
+      log.warn(LOG_MOD, 'dlp mask failed', err);
+      body = MASK_FAILED_BODY;
+    }
     return {
       subject: msg.getSubject(),
       from: msg.getFrom(),
-      body: maskPii(getMessagePlainBody(msg)),
+      body,
     };
   });
 }

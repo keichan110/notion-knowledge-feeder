@@ -1,3 +1,4 @@
+import type { DlpProjectId } from '../capabilities/dlp';
 import type { GeminiApiKey, GeminiModel } from '../capabilities/gemini';
 import type { NotionConnectAccessToken, NotionDbId } from '../capabilities/notion';
 import type { SlackBotToken, SlackChannelId } from '../capabilities/slack';
@@ -10,6 +11,7 @@ export type Config = {
   notionDbId: NotionDbId;
   slackBotToken: SlackBotToken;
   slackChannelId: SlackChannelId;
+  dlpProjectId: DlpProjectId;
 };
 
 export type SecretConfig = Pick<Config, 'secretToken'>;
@@ -17,6 +19,7 @@ export type GeminiConfig = Pick<Config, 'geminiApiKey' | 'geminiModel'>;
 export type NotionConfig = Pick<Config, 'notionAccessToken' | 'notionDbId'>;
 export type SlackConfig = Pick<Config, 'slackBotToken' | 'slackChannelId'>;
 export type GmailDigestConfig = Pick<Config, 'slackBotToken' | 'slackChannelId'>;
+export type DlpConfig = Pick<Config, 'dlpProjectId'>;
 
 type ConfigSnapshot = Record<string, string>;
 
@@ -46,6 +49,7 @@ function buildConfig(snapshot: ConfigSnapshot): Config {
     notionDbId: snapshot.NOTION_DB_ID ?? '',
     slackBotToken: (snapshot.SLACK_BOT_TOKEN ?? '') as SlackBotToken,
     slackChannelId: (snapshot.SLACK_CHANNEL_ID ?? '') as SlackChannelId,
+    dlpProjectId: snapshot.DLP_PROJECT_ID ?? '',
   };
 }
 
@@ -91,6 +95,15 @@ export function getNotionConfig(): NotionConfig {
 export function getGmailDigestConfig(): GmailDigestConfig {
   const { slackBotToken, slackChannelId } = buildConfig(getConfigSnapshot());
   return { slackBotToken, slackChannelId };
+}
+
+/**
+ * DLP設定をキャッシュ済みスクリプトプロパティから取得する。
+ * @returns DLPプロジェクトID
+ */
+export function getDlpConfig(): DlpConfig {
+  const { dlpProjectId } = buildConfig(getConfigSnapshot());
+  return { dlpProjectId };
 }
 
 /**
