@@ -7,14 +7,7 @@ vi.mock('./log', () => ({
 }));
 
 import { log } from './log';
-import {
-  dailyAt,
-  dueHours,
-  everyHours,
-  type Job,
-  runCadence,
-  runTrigger,
-} from './scheduler';
+import { always, dailyAt, dueHours, everyHours, type Job, runCadence, runTrigger } from './scheduler';
 
 const TODAY = '2026-06-24';
 const NOW = new Date('2026-06-23T23:00:00.000Z');
@@ -50,8 +43,13 @@ describe('dueHours', () => {
 
   it('everyHours(1) は 0〜23 の全24時間を返す', () => {
     expect(dueHours(everyHours(1))).toEqual([
-      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
-      21, 22, 23,
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+    ]);
+  });
+
+  it('always() は 0〜23 の全24時間を返す', () => {
+    expect(dueHours(always())).toEqual([
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
     ]);
   });
 });
@@ -147,6 +145,16 @@ describe('runCadence', () => {
     runCadence([job('every-job', everyHours(3), run)], { now: NOW });
 
     expect(run).not.toHaveBeenCalled();
+  });
+
+  it('always: 時刻に関係なく run され setProperty は呼ばれない', () => {
+    mockJst('5', TODAY);
+    const run = vi.fn();
+
+    runCadence([job('always-job', always(), run)], { now: NOW });
+
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(setProperty).not.toHaveBeenCalled();
   });
 
   it('集約: 一部ジョブが throw しても残りのジョブは実行され最後に AggregateError 相当が throw される', () => {

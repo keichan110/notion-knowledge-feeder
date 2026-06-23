@@ -1,7 +1,24 @@
-import { dailyAt, everyHours, type Job } from './lib/scheduler';
-import { processTrendingQiita, processTrendingZenn } from './pipelines/article-ingest';
+import { always, dailyAt, everyHours, type Job } from './lib/scheduler';
+import {
+  processPendingArticles,
+  processTrendingQiita,
+  processTrendingZenn,
+} from './pipelines/article-ingest';
 import { runGmailDigest } from './pipelines/gmail-digest';
 import { runLabelCleanup as runGmailLabelCleanup } from './pipelines/gmail-label-cleanup';
+
+/**
+ * 10分トリガーで分岐する宣言的スケジュールテーブル。
+ * サブ時間カデンスは必要時に専用種別を追加する。
+ */
+export const TEN_MINUTE_SCHEDULE: readonly Job[] = [
+  {
+    name: 'article-ingest:pending',
+    weight: 'light',
+    at: always(),
+    run: () => processPendingArticles(),
+  },
+];
 
 /**
  * 毎時トリガーで分岐する宣言的スケジュールテーブル。

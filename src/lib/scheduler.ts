@@ -5,7 +5,10 @@ const LOG_MOD = 'scheduler';
 const DAILY_GUARD_PREFIX = 'scheduler:dailyAt:lastRunDate:';
 
 /** 宣言的スケジュールテーブルで使う発火条件。 */
-export type Schedule = { kind: 'dailyAt'; hour: number } | { kind: 'everyHours'; n: number };
+export type Schedule =
+  | { kind: 'always' }
+  | { kind: 'dailyAt'; hour: number }
+  | { kind: 'everyHours'; n: number };
 
 /** スケジューラが実行する1ジョブの定義。 */
 export type Job = {
@@ -32,6 +35,12 @@ export type RunCadenceOptions = {
 export const dailyAt = (hour: number): Schedule => ({ kind: 'dailyAt', hour });
 
 /**
+ * 常に発火する条件を作る。
+ * @returns 常時実行スケジュール
+ */
+export const always = (): Schedule => ({ kind: 'always' });
+
+/**
  * N時間ごとの発火条件を作る。
  * @param n 発火間隔（時間）
  * @returns N時間ごとのスケジュール
@@ -44,6 +53,7 @@ export const everyHours = (n: number): Schedule => ({ kind: 'everyHours', n });
  * @returns 0〜23時のうちdueになる時刻
  */
 export function dueHours(at: Schedule): number[] {
+  if (at.kind === 'always') return hoursOfDay();
   if (at.kind === 'dailyAt') return [at.hour];
   return hoursOfDay().filter((hour) => hour % at.n === 0);
 }
@@ -107,6 +117,7 @@ class CadenceAggregateError extends Error {
 }
 
 function isDue(job: Job, hour: number, today: string): boolean {
+  if (job.at.kind === 'always') return true;
   if (job.at.kind === 'dailyAt') {
     return hour >= job.at.hour && lastDailyRunDate(job.name) !== today;
   }

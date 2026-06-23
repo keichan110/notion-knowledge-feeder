@@ -1,9 +1,6 @@
-import { runCadence, runTrigger } from './lib/scheduler';
-import {
-  acceptUrlPost,
-  processPendingArticles as runArticleIngestPendingArticles,
-} from './pipelines/article-ingest';
-import { HOURLY_SCHEDULE } from './schedule';
+import { runCadence } from './lib/scheduler';
+import { acceptUrlPost } from './pipelines/article-ingest';
+import { HOURLY_SCHEDULE, TEN_MINUTE_SCHEDULE } from './schedule';
 
 /**
  * iOSショートカットからのPOSTリクエストをarticle-ingest Pipelineへ渡す。
@@ -19,8 +16,7 @@ export function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Cont
  * @returns なし
  */
 export function triggerEvery10Minutes(): void {
-  // 10分枠は現状pendingのみ常に実行する。20分機構は必要になった時点でこの粒度に追加する。
-  runTrigger('article-ingest:pending', () => runArticleIngestPendingArticles());
+  runCadence(TEN_MINUTE_SCHEDULE);
 }
 
 /**
