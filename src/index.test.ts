@@ -8,8 +8,13 @@ vi.mock('./pipelines/article-ingest/sources');
 
 import { callGeminiAPI } from './capabilities/gemini';
 import { fetchArticleContent } from './capabilities/jina';
-import { doPost, processPendingArticles, processTrendingQiita, processTrendingZenn } from './index';
+import { doPost } from './index';
 import { getGeminiConfig, getNotionConfig, getSecretConfig } from './lib/config';
+import {
+  processPendingArticles,
+  processTrendingQiita,
+  processTrendingZenn,
+} from './pipelines/article-ingest';
 import type { GeminiResult } from './pipelines/article-ingest/gemini';
 import {
   clearPendingArticlesFlag,
