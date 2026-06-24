@@ -147,7 +147,29 @@ describe('runGmailDigest', () => {
     expect(geminiUserContent).not.toContain('user@example.com');
 
     const parentPayload = getSlackPayload(0);
-    expect(parentPayload.text).toMatch(/^📬 \d{4}\/\d{2}\/\d{2} のメールダイジェスト\n2件$/);
+    expect(parentPayload.text).toMatch(/^📬 \d{4}\/\d{2}\/\d{2}\n2件のメールが届いています$/);
+    expect(parentPayload.blocks).toMatchObject([
+      {
+        type: 'header',
+        level: 1,
+        text: {
+          type: 'plain_text',
+          text: expect.stringMatching(/^📬 \d{4}\/\d{2}\/\d{2}$/),
+        },
+      },
+      {
+        type: 'rich_text',
+        elements: [
+          {
+            type: 'rich_text_section',
+            elements: [
+              { type: 'text', text: '2', style: { bold: true } },
+              { type: 'text', text: ' 件のメールが届いています' },
+            ],
+          },
+        ],
+      },
+    ]);
     expect(JSON.stringify(parentPayload.blocks)).not.toContain('対応が必要');
     expect(JSON.stringify(parentPayload.blocks)).not.toContain('種類別');
     expect(JSON.stringify(parentPayload.blocks)).not.toContain('まとめ');
@@ -188,10 +210,33 @@ describe('runGmailDigest', () => {
     expect(getDlpCalls()).toHaveLength(0);
     expect(getSlackCalls()).toHaveLength(1);
     const payload = getSlackPayload(0);
-    expect(payload.text).toMatch(
-      /^📬 \d{4}\/\d{2}\/\d{2} のメールダイジェスト\nメールは届きませんでした$/
-    );
-    expect(JSON.stringify(payload.blocks)).toContain('メールは届きませんでした');
+    expect(payload.text).toMatch(/^📭 \d{4}\/\d{2}\/\d{2}\n新着メールはありませんでした$/);
+    expect(payload.blocks).toMatchObject([
+      {
+        type: 'header',
+        level: 1,
+        text: {
+          type: 'plain_text',
+          text: expect.stringMatching(/^📭 \d{4}\/\d{2}\/\d{2}$/),
+        },
+      },
+      {
+        type: 'rich_text',
+        elements: [
+          {
+            type: 'rich_text_section',
+            elements: [
+              {
+                type: 'text',
+                text: '新着メールはありませんでした',
+                style: { italic: true },
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+    expect(JSON.stringify(payload.blocks)).toContain('新着メールはありませんでした');
     expect(payload.thread_ts).toBeUndefined();
   });
 
@@ -207,9 +252,42 @@ describe('runGmailDigest', () => {
     expect(getSlackCalls()).toHaveLength(16);
 
     const parentPayload = getSlackPayload(0);
-    expect(JSON.stringify(parentPayload.blocks)).toContain(
-      '件数が多いため要約は省略し本文冒頭のみ表示します'
-    );
+    expect(parentPayload.blocks).toMatchObject([
+      {
+        type: 'header',
+        level: 1,
+        text: {
+          type: 'plain_text',
+          text: expect.stringMatching(/^📬 \d{4}\/\d{2}\/\d{2}$/),
+        },
+      },
+      {
+        type: 'rich_text',
+        elements: [
+          {
+            type: 'rich_text_section',
+            elements: [
+              {
+                type: 'text',
+                text: `${MAX_SUMMARY_NEWSLETTERS + 1}`,
+                style: { bold: true },
+              },
+              { type: 'text', text: ' 件のメールが届いています' },
+            ],
+          },
+          {
+            type: 'rich_text_section',
+            elements: [
+              { type: 'emoji', name: 'warning' },
+              {
+                type: 'text',
+                text: ' 件数が多いため要約は省略し、本文冒頭のみ表示します',
+              },
+            ],
+          },
+        ],
+      },
+    ]);
 
     const firstReplyPayload = getSlackPayload(1);
     expect(firstReplyPayload.thread_ts).toBe('123.456');
