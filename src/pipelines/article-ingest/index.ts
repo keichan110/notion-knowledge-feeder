@@ -1,5 +1,5 @@
 import { fetchArticleContent } from '../../capabilities/jina';
-import { getGeminiConfig, getNotionConfig, getSecretConfig } from '../../lib/config';
+import { getGeminiConfig, getNotionConfig } from '../../lib/config';
 import { log } from '../../lib/log';
 import { createResponse, stripQueryString } from '../../lib/utils';
 import { type GeminiResult, summarizeArticle } from './gemini';
@@ -17,27 +17,12 @@ import { fetchQiitaTrendUrls, fetchZennTrendUrls } from './sources';
 const MAX_RETRY_COUNT = 5;
 
 /**
- * iOSショートカットからのPOSTリクエストを受け取り、NotionにURLを仮登録する。
- * @param e GASのDoPostイベントオブジェクト
+ * 認証済みPOSTボディからURLを受け取り、NotionにURLを仮登録する。
+ * @param body 認証済みPOSTリクエストのパース済みボディ
  * @returns 処理結果を含むJSONレスポンス
  */
-export function acceptUrlPost(
-  e: GoogleAppsScript.Events.DoPost
-): GoogleAppsScript.Content.TextOutput {
-  const { secretToken } = getSecretConfig();
-
-  let body: { token?: string; url?: string };
-  try {
-    body = JSON.parse(e.postData.contents) as { token?: string; url?: string };
-  } catch {
-    return createResponse(false, 'Invalid JSON');
-  }
-
-  if (body.token !== secretToken) {
-    return createResponse(false, 'Unauthorized');
-  }
-
-  const url = body.url;
+export function acceptUrlPost(body: Record<string, unknown>): GoogleAppsScript.Content.TextOutput {
+  const url = typeof body.url === 'string' ? body.url : undefined;
   if (!url) {
     return createResponse(false, 'URL is required');
   }
@@ -46,14 +31,14 @@ export function acceptUrlPost(
     registerPendingUrl(url);
   } catch (err) {
     if (err instanceof DuplicateUrlError) {
-      log.error('doPost', 'duplicate', err, { url });
+      log.error('acceptUrlPost', 'duplicate', err, { url });
       return createResponse(false, 'This URL has already been registered');
     }
-    log.error('doPost', 'notion write failed', err, { url });
+    log.error('acceptUrlPost', 'notion write failed', err, { url });
     return createResponse(false, `Notion write failed: ${String(err)}`);
   }
 
-  log.info('doPost', 'accepted', { url });
+  log.info('acceptUrlPost', 'accepted', { url });
 
   return createResponse(true, 'accepted');
 }

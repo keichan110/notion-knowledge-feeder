@@ -1,3 +1,4 @@
+import { authenticatePostRequest } from './lib/auth';
 import { runCadence } from './lib/scheduler';
 import { acceptUrlPost } from './pipelines/article-ingest';
 import { HOURLY_SCHEDULE, TEN_MINUTE_SCHEDULE } from './schedule';
@@ -8,7 +9,10 @@ import { HOURLY_SCHEDULE, TEN_MINUTE_SCHEDULE } from './schedule';
  * @returns 処理結果を含むJSONレスポンス
  */
 export function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.TextOutput {
-  return acceptUrlPost(e);
+  const auth = authenticatePostRequest(e);
+  if (!auth.success) return auth.response;
+
+  return acceptUrlPost(auth.body);
 }
 
 /**
