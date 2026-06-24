@@ -6,7 +6,7 @@ import {
 } from '../../capabilities/gemini';
 
 const SYSTEM_INSTRUCTION =
-  'あなたは、与えられた複数のNewsletter(メールマガジン)を1通ずつ要約するアシスタントです。各メールについて「何の連絡か・要点は何か」が掴める簡潔な要約を1〜2文でsummaryに書いてください。セミナーやイベントの申込期限・締切・開催日などの日付は要約から絶対に省略しないでください。subjectは入力メールの件名をそのまま使ってください。入力と同じ件数のsummariesを入力と同じ順序で返してください。書かれている内容だけ使い推測しないでください。';
+  'あなたは、与えられた複数のNewsletter(メールマガジン)を1通ずつ要約するアシスタントです。各メールについて以下を出力してください。headline: メールの内容を一言で表す簡潔な日本語タイトル（メールの件名の代わりに使います）。points: メールの要点を2〜3点の配列（各要素は1文）。セミナーやイベントの申込期限・締切・開催日などの日付はheadlineまたはpointsから絶対に省略しないでください。入力と同じ件数のsummariesを入力と同じ順序で返してください。書かれている内容だけ使い推測しないでください。';
 
 const RESPONSE_SCHEMA: GeminiResponseSchema = {
   type: 'OBJECT',
@@ -16,11 +16,11 @@ const RESPONSE_SCHEMA: GeminiResponseSchema = {
       items: {
         type: 'OBJECT',
         properties: {
-          subject: { type: 'STRING' },
-          summary: { type: 'STRING' },
+          headline: { type: 'STRING' },
+          points: { type: 'ARRAY', items: { type: 'STRING' } },
         },
-        required: ['subject', 'summary'],
-        propertyOrdering: ['subject', 'summary'],
+        required: ['headline', 'points'],
+        propertyOrdering: ['headline', 'points'],
       },
     },
   },
@@ -28,7 +28,7 @@ const RESPONSE_SCHEMA: GeminiResponseSchema = {
 };
 
 export type NewsletterInput = { subject: string; from: string; body: string };
-export type NewsletterSummary = { subject: string; summary: string };
+export type NewsletterSummary = { headline: string; points: string[] };
 
 /**
  * ページ単位のNewsletterをGeminiで1通ずつ要約する。
@@ -86,7 +86,12 @@ ${newsletter.body}`
 }
 
 function isNewsletterSummary(value: unknown): value is NewsletterSummary {
-  return isRecord(value) && typeof value.subject === 'string' && typeof value.summary === 'string';
+  return (
+    isRecord(value) &&
+    typeof value.headline === 'string' &&
+    Array.isArray(value.points) &&
+    (value.points as unknown[]).every((p) => typeof p === 'string')
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

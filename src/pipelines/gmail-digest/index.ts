@@ -178,48 +178,66 @@ function buildParentSlackMessage(
   text: string;
   blocks: unknown[];
 } {
-  const header = `📬 ${dateLabel} のメールダイジェスト`;
+  const header = `${count === 0 ? '📭' : '📬'} ${dateLabel}`;
   if (count === 0) {
     return {
-      text: `${header}\nメールは届きませんでした`,
+      text: `${header}\n新着メールはありませんでした`,
       blocks: [
         {
           type: 'header',
-          text: { type: 'plain_text', text: header, emoji: true },
+          level: 1,
+          text: { type: 'plain_text', text: header },
         },
         {
-          type: 'section',
-          text: { type: 'mrkdwn', text: 'メールは届きませんでした' },
+          type: 'rich_text',
+          elements: [
+            {
+              type: 'rich_text_section',
+              elements: [
+                {
+                  type: 'text',
+                  text: '新着メールはありませんでした',
+                  style: { italic: true },
+                },
+              ],
+            },
+          ],
         },
       ],
     };
   }
 
-  const blocks: unknown[] = [
+  const richTextElements: unknown[] = [
     {
-      type: 'header',
-      text: { type: 'plain_text', text: header, emoji: true },
-    },
-    {
-      type: 'section',
-      text: { type: 'mrkdwn', text: `${count}件` },
+      type: 'rich_text_section',
+      elements: [
+        { type: 'text', text: `${count}`, style: { bold: true } },
+        { type: 'text', text: ' 件のメールが届いています' },
+      ],
     },
   ];
 
   if (fallback) {
-    blocks.push({
-      type: 'context',
+    richTextElements.push({
+      type: 'rich_text_section',
       elements: [
-        {
-          type: 'mrkdwn',
-          text: '件数が多いため要約は省略し本文冒頭のみ表示します',
-        },
+        { type: 'emoji', name: 'warning' },
+        { type: 'text', text: ' 件数が多いため要約は省略し、件名と送信者のみ表示します' },
       ],
     });
   }
 
+  const blocks: unknown[] = [
+    {
+      type: 'header',
+      level: 1,
+      text: { type: 'plain_text', text: header },
+    },
+    { type: 'rich_text', elements: richTextElements },
+  ];
+
   return {
-    text: `${header}\n${count}件`,
+    text: `${header}\n${count}件のメールが届いています`,
     blocks,
   };
 }
@@ -239,16 +257,23 @@ function buildThreadSummaryBlocks(
     const from = parseFrom(msg.getFrom());
     const subject = escapeMrkdwn(msg.getSubject());
     const sender = buildSenderText(from);
-    const summary = escapeMrkdwn(summaries[index]?.summary ?? '');
+    const summary = summaries[index];
+    const headline = escapeMrkdwn(summary?.headline ?? '');
+    const points = (summary?.points ?? []).map((p) => `• ${escapeMrkdwn(p)}`).join('\n');
 
     return [
       {
-        type: 'context',
-        elements: [{ type: 'mrkdwn', text: sender }],
+        type: 'header',
+        level: 2,
+        text: { type: 'plain_text', text: headline },
       },
       {
         type: 'section',
-        text: { type: 'mrkdwn', text: `*${subject}*\n${summary}` },
+        text: { type: 'mrkdwn', text: points },
+      },
+      {
+        type: 'section',
+        text: { type: 'mrkdwn', text: `> *${subject}*\n> ${sender}` },
         accessory: {
           type: 'button',
           text: { type: 'plain_text', text: 'メールを開く', emoji: true },
@@ -271,16 +296,11 @@ function buildThreadFallbackBlocks(threads: GoogleAppsScript.Gmail.GmailThread[]
     const from = parseFrom(msg.getFrom());
     const subject = escapeMrkdwn(msg.getSubject());
     const sender = buildSenderText(from);
-    const excerpt = escapeMrkdwn(truncateBody(getMessagePlainBody(msg), BODY_EXCERPT_LEN));
 
     return [
       {
-        type: 'context',
-        elements: [{ type: 'mrkdwn', text: sender }],
-      },
-      {
         type: 'section',
-        text: { type: 'mrkdwn', text: `*${subject}*\n${excerpt}` },
+        text: { type: 'mrkdwn', text: `> *${subject}*\n> ${sender}` },
         accessory: {
           type: 'button',
           text: { type: 'plain_text', text: 'メールを開く', emoji: true },
