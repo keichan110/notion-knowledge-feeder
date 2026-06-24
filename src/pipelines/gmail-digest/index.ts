@@ -222,7 +222,7 @@ function buildParentSlackMessage(
       type: 'rich_text_section',
       elements: [
         { type: 'emoji', name: 'warning' },
-        { type: 'text', text: ' 件数が多いため要約は省略し、本文冒頭のみ表示します' },
+        { type: 'text', text: ' 件数が多いため要約は省略し、件名と送信者のみ表示します' },
       ],
     });
   }
