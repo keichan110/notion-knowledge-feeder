@@ -7,7 +7,15 @@ vi.mock('./log', () => ({
 }));
 
 import { log } from './log';
-import { always, dailyAt, dueHours, everyHours, type Job, runCadence, runTrigger } from './scheduler';
+import {
+  always,
+  dailyAt,
+  dueHours,
+  everyHours,
+  type Job,
+  runCadence,
+  runTrigger,
+} from './scheduler';
 
 const TODAY = '2026-06-24';
 const NOW = new Date('2026-06-23T23:00:00.000Z');
