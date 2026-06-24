@@ -257,16 +257,23 @@ function buildThreadSummaryBlocks(
     const from = parseFrom(msg.getFrom());
     const subject = escapeMrkdwn(msg.getSubject());
     const sender = buildSenderText(from);
-    const summary = escapeMrkdwn(summaries[index]?.summary ?? '');
+    const summary = summaries[index];
+    const headline = escapeMrkdwn(summary?.headline ?? '');
+    const points = (summary?.points ?? []).map((p) => `• ${escapeMrkdwn(p)}`).join('\n');
 
     return [
       {
-        type: 'context',
-        elements: [{ type: 'mrkdwn', text: sender }],
+        type: 'header',
+        level: 2,
+        text: { type: 'plain_text', text: headline },
       },
       {
         type: 'section',
-        text: { type: 'mrkdwn', text: `*${subject}*\n${summary}` },
+        text: { type: 'mrkdwn', text: points },
+      },
+      {
+        type: 'section',
+        text: { type: 'mrkdwn', text: `> *${subject}*\n> ${sender}` },
         accessory: {
           type: 'button',
           text: { type: 'plain_text', text: 'メールを開く', emoji: true },
@@ -289,16 +296,11 @@ function buildThreadFallbackBlocks(threads: GoogleAppsScript.Gmail.GmailThread[]
     const from = parseFrom(msg.getFrom());
     const subject = escapeMrkdwn(msg.getSubject());
     const sender = buildSenderText(from);
-    const excerpt = escapeMrkdwn(truncateBody(getMessagePlainBody(msg), BODY_EXCERPT_LEN));
 
     return [
       {
-        type: 'context',
-        elements: [{ type: 'mrkdwn', text: sender }],
-      },
-      {
         type: 'section',
-        text: { type: 'mrkdwn', text: `*${subject}*\n${excerpt}` },
+        text: { type: 'mrkdwn', text: `> *${subject}*\n> ${sender}` },
         accessory: {
           type: 'button',
           text: { type: 'plain_text', text: 'メールを開く', emoji: true },

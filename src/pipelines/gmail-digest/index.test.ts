@@ -7,9 +7,9 @@ const PAGE_SIZE = 5;
 const MAX_SUMMARY_NEWSLETTERS = 70;
 
 const geminiSummariesFixture = {
-  summaries: Array.from({ length: PAGE_SIZE }, (_, i) => ({
-    subject: `Subject ${i + 1}`,
-    summary: 'メール要約テキスト',
+  summaries: Array.from({ length: PAGE_SIZE }, () => ({
+    headline: 'AIが生成したタイトル',
+    points: ['ポイント1', 'ポイント2'],
   })),
 };
 
@@ -179,10 +179,11 @@ describe('runGmailDigest', () => {
     expect(replyPayload.text).toMatch(
       /^📬 \d{4}\/\d{2}\/\d{2} のメールダイジェスト 詳細: Subject 1, Subject 2$/
     );
+    expect(JSON.stringify(replyPayload.blocks)).toContain('AIが生成したタイトル');
+    expect(JSON.stringify(replyPayload.blocks)).toContain('ポイント1');
     expect(JSON.stringify(replyPayload.blocks)).toContain('Subject 1');
     expect(JSON.stringify(replyPayload.blocks)).toContain('Sender One');
     expect(JSON.stringify(replyPayload.blocks)).toContain('sender1@example.com');
-    expect(JSON.stringify(replyPayload.blocks)).toContain('メール要約テキスト');
     expect(JSON.stringify(replyPayload.blocks)).toContain('https://mail/1');
     expect(JSON.stringify(replyPayload.blocks)).toContain('メールを開く');
     expect(JSON.stringify(replyPayload.blocks)).not.toContain('本文1');
@@ -197,8 +198,8 @@ describe('runGmailDigest', () => {
     expect(getSlackCalls()).toHaveLength(3);
     expect(getSlackPayload(1).thread_ts).toBe('123.456');
     expect(getSlackPayload(2).thread_ts).toBe('123.456');
-    expect(getSlackPayload(1).blocks).toHaveLength(PAGE_SIZE * 3);
-    expect(getSlackPayload(2).blocks).toHaveLength(3);
+    expect(getSlackPayload(1).blocks).toHaveLength(PAGE_SIZE * 4);
+    expect(getSlackPayload(2).blocks).toHaveLength(4);
   });
 
   it('Newsletterスレッドが0件の場合はGeminiを呼ばず親のみ投稿する', () => {
@@ -240,7 +241,7 @@ describe('runGmailDigest', () => {
     expect(payload.thread_ts).toBeUndefined();
   });
 
-  it('上限超過時はGeminiを呼ばず本文冒頭のみをページ返信する', () => {
+  it('上限超過時はGeminiを呼ばず件名と送信者のみをページ返信する', () => {
     vi.mocked(GmailApp.search).mockReturnValue(
       createThreads(MAX_SUMMARY_NEWSLETTERS + 1, '長い本文 '.repeat(50))
     );
@@ -291,9 +292,8 @@ describe('runGmailDigest', () => {
 
     const firstReplyPayload = getSlackPayload(1);
     expect(firstReplyPayload.thread_ts).toBe('123.456');
-    expect(JSON.stringify(firstReplyPayload.blocks)).toContain(
-      truncateBody('長い本文 '.repeat(50))
-    );
+    expect(JSON.stringify(firstReplyPayload.blocks)).toContain('Subject 1');
+    expect(JSON.stringify(firstReplyPayload.blocks)).toContain('Sender One');
     expect(JSON.stringify(firstReplyPayload.blocks)).toContain('メールを開く');
   });
 

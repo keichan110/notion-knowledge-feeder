@@ -12,8 +12,8 @@ const newsletters: NewsletterInput[] = [
 
 const validResponse = {
   summaries: [
-    { subject: 'Newsletter 1', summary: '要約1。6月30日の締切を含む。' },
-    { subject: 'Newsletter 2', summary: '要約2。' },
+    { headline: 'タイトル1（6月30日締切）', points: ['ポイント1-1', 'ポイント1-2'] },
+    { headline: 'タイトル2', points: ['ポイント2-1'] },
   ],
 };
 
@@ -33,7 +33,7 @@ describe('summarizeNewsletterPage', () => {
       })
     );
     const params = vi.mocked(callGeminiAPI).mock.calls[0][0];
-    expect(params.systemInstruction).toContain('日付は要約から絶対に省略しない');
+    expect(params.systemInstruction).toContain('日付はheadlineまたはpointsから絶対に省略しない');
     expect(params.userContent).toContain('Newsletter 1');
     expect(params.userContent).toContain('sender1@example.com');
     expect(params.userContent).toContain('本文1');
@@ -55,11 +55,11 @@ describe('summarizeNewsletterPage', () => {
           items: {
             type: 'OBJECT',
             properties: {
-              subject: { type: 'STRING' },
-              summary: { type: 'STRING' },
+              headline: { type: 'STRING' },
+              points: { type: 'ARRAY', items: { type: 'STRING' } },
             },
-            required: ['subject', 'summary'],
-            propertyOrdering: ['subject', 'summary'],
+            required: ['headline', 'points'],
+            propertyOrdering: ['headline', 'points'],
           },
         },
       },
@@ -88,7 +88,7 @@ describe('parseNewsletterSummaries', () => {
   it('summaries要素の型が不正な場合はエラーを投げる', () => {
     expect(() =>
       parseNewsletterSummaries(
-        JSON.stringify({ summaries: [{ subject: 'Newsletter 1', summary: 123 }] })
+        JSON.stringify({ summaries: [{ headline: 'タイトル', points: 123 }] })
       )
     ).toThrow('Gemini returned invalid JSON');
   });
