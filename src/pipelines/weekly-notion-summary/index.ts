@@ -4,8 +4,9 @@ import {
   queryDatabase,
 } from '../../capabilities/notion';
 import { postMessage } from '../../capabilities/slack';
-import { getNotionConfig, getWeeklySummaryConfig } from '../../lib/config';
+import { getGeminiConfig, getNotionConfig, getWeeklySummaryConfig } from '../../lib/config';
 import { log } from '../../lib/log';
+import { summarizeTrend, type TrendCluster } from './gemini';
 
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
@@ -14,10 +15,14 @@ const DAY_MS = 24 * HOUR_MS;
 const BOUNDARY_HOUR = 14;
 const COMPLETED_STATUS = '完了';
 const NOTION_PAGE_SIZE = 100;
+// トレンドトピックの足切り件数（これ未満は単発ノイズとして除外）と表示上限。
+const MIN_TOPIC_COUNT = 2;
+const MAX_TOPICS = 8;
 const LOG_MOD = 'weekly-notion-summary';
 
 export type SummaryWindow = { onOrAfter: string; before: string; label: string };
 export type SummaryRecord = { title: string; category: string; tags: string[] };
+export type RankedTopic = { label: string; count: number; memberTags: string[] };
 
 /**
  * 指定時刻を基準に、直近の日曜14:00 JSTにアンカーした週次ウィンドウを返す。
@@ -63,15 +68,47 @@ export function runWeeklyNotionSummary(): void {
   }
 
   const count = records.length;
-  const message = count === 0 ? buildEmptyMessage(window) : buildSummaryMessage(window, count);
+  if (count === 0) {
+    postSlackMessage(slackCfg, buildEmptyMessage(window));
+    log.info(LOG_MOD, 'done', { count, topics: 0 });
+    return;
+  }
+
+  const geminiCfg = getGeminiConfig();
+  let topics: RankedTopic[];
+  let summary: string;
   try {
-    postMessage(slackCfg.slackBotToken, slackCfg.slackChannelId, message);
+    const trend = summarizeTrend(records, geminiCfg.geminiModel, geminiCfg.geminiApiKey);
+    topics = rankTopics(records, trend.topics);
+    summary = trend.summary;
   } catch (err) {
-    log.error(LOG_MOD, 'slack post failed', err);
+    log.error(LOG_MOD, 'gemini summarize failed', err);
     throw err;
   }
 
-  log.info(LOG_MOD, 'done', { count });
+  postSlackMessage(slackCfg, buildSummaryMessage(window, count, summary, topics));
+  log.info(LOG_MOD, 'done', { count, topics: topics.length });
+}
+
+/**
+ * 名寄せクラスタごとの記事件数をコードで決定的に集計し、ランキングして返す。
+ * 各クラスタの件数は `memberTags` のいずれかを持つ記事数。1記事が複数クラスタに
+ * 該当する場合は各クラスタで重複カウントする。件数2以上を降順・最大8件に絞る。
+ * @param records 集計対象の完了レコード
+ * @param clusters Geminiが返した名寄せクラスタ
+ * @returns 件数2以上・降順・最大8件のトレンドトピック
+ */
+export function rankTopics(records: SummaryRecord[], clusters: TrendCluster[]): RankedTopic[] {
+  return clusters
+    .map((cluster) => ({
+      label: cluster.label,
+      memberTags: cluster.memberTags,
+      count: records.filter((record) => record.tags.some((tag) => cluster.memberTags.includes(tag)))
+        .length,
+    }))
+    .filter((topic) => topic.count >= MIN_TOPIC_COUNT)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, MAX_TOPICS);
 }
 
 type NotionPage = {
@@ -174,14 +211,18 @@ function buildEmptyMessage(window: SummaryWindow): { text: string; blocks: unkno
 }
 
 /**
- * 対象記事が1件以上のときのSlackメッセージ（ヘッダー＋総件数）を組み立てる。
+ * 対象記事が1件以上のときのSlackメッセージ（ヘッダー＋総件数＋総括＋🔥トレンドトピック）を組み立てる。
  * @param window 集計対象の週次ウィンドウ
  * @param count 完了レコードの総件数
+ * @param summary Geminiが返した今週の総括
+ * @param topics 件数集計済みのトレンドトピック（空配列のときは突出なしと表示する）
  * @returns Slack投稿パラメータ
  */
-function buildSummaryMessage(
+export function buildSummaryMessage(
   window: SummaryWindow,
-  count: number
+  count: number,
+  summary: string,
+  topics: RankedTopic[]
 ): { text: string; blocks: unknown[] } {
   const header = `📊 週次サマリー ${window.label}`;
   return {
@@ -200,8 +241,61 @@ function buildSummaryMessage(
           },
         ],
       },
+      { type: 'section', text: { type: 'mrkdwn', text: escapeMrkdwn(summary) } },
+      { type: 'divider' },
+      { type: 'section', text: { type: 'mrkdwn', text: '*🔥 今週のトレンドトピック*' } },
+      buildTopicsBlock(topics),
     ],
   };
+}
+
+/**
+ * トレンドトピック一覧のSlack sectionブロックを組み立てる。
+ * @param topics 件数集計済みのトレンドトピック
+ * @returns 突出トピックがあれば一覧、無ければ専用メッセージのsectionブロック
+ */
+function buildTopicsBlock(topics: RankedTopic[]): unknown {
+  if (topics.length === 0) {
+    return {
+      type: 'section',
+      text: { type: 'mrkdwn', text: '今週は突出したトピックはありませんでした' },
+    };
+  }
+
+  const lines = topics
+    .map(
+      (topic) =>
+        `• *${escapeMrkdwn(topic.label)}* (${topic.count}件) — ${escapeMrkdwn(topic.memberTags.join(', '))}`
+    )
+    .join('\n');
+  return { type: 'section', text: { type: 'mrkdwn', text: lines } };
+}
+
+/**
+ * Slackへメッセージを投稿し、失敗時はログを残して再throwする。
+ * @param cfg Slack投稿先設定
+ * @param message 投稿する本文とBlock Kit
+ * @returns なし
+ */
+function postSlackMessage(
+  cfg: ReturnType<typeof getWeeklySummaryConfig>,
+  message: { text: string; blocks: unknown[] }
+): void {
+  try {
+    postMessage(cfg.slackBotToken, cfg.slackChannelId, message);
+  } catch (err) {
+    log.error(LOG_MOD, 'slack post failed', err);
+    throw err;
+  }
+}
+
+/**
+ * Slack mrkdwn用に特殊文字をエスケープする。
+ * @param s エスケープ対象文字列
+ * @returns エスケープ済み文字列
+ */
+function escapeMrkdwn(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 /**
