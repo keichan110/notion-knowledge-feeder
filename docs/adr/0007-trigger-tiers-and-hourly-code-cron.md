@@ -1,7 +1,9 @@
 # ADR-0007: トリガーを「時間粒度3階層＋毎時コードcron」に再編する
 
-- Status: Accepted
+- Status: Accepted（catch-up部分はADR-0009でsuperseded）
 - Date: 2026-06-23
+
+> **注記（2026-06-25）**: 本ADRの **catch-up**（§1 の `dailyAt(h)` ＝ `hour >= h` ＋当日実行済みガード、§5 が前提とする当日ガード状態）は **ADR-0009 でsupersededされ、exact-hour一致（`hour === h`・ガード廃止）に変更**された。トリガースロットの階層・宣言的スケジュールテーブル・集約エラーシンク・`weight` の静的不変条件テストといった構造的決定はそのまま有効。
 
 ## Context
 

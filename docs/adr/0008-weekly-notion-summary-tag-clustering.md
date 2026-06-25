@@ -66,12 +66,12 @@ Gemini呼び出しは**1回**。入力は各記事の `title` + `category`（ク
 
 ### 6. When ＝ `weeklyAt(SUN, 14)` を新設（ADR-0007 のフラクタル拡張）
 
-scheduler に週次の発火条件 `weeklyAt(weekday, hour)` を追加する。
+scheduler に週次の発火条件 `weeklyAt(weekday, hour)` を追加する。発火判定は **exact-hour 一致**（catch-up なし。ADR-0009）。
 
 - `HOURLY_SCHEDULE` に `{ name: 'weekly-notion-summary', weight: 'heavy', at: weeklyAt(0, 14), run: () => runWeeklyNotionSummary() }` を1行追加する（日曜＝0）。
-- 判定は **`currentWeekday === weekday && hour >= hour` ＋「今週その枠を実行済みか」ガード**。`dailyAt` の当日catch-upを週単位に拡張したもの（ガード状態は ScriptProperties に「枠ごとの最終実行週」として持つ）。
-- 集計ウィンドウは **日曜14:00 JST境界にアンカーしたローリング7日**（先週日14:00〜今週日14:00）。`created_time` の ISO 8601 タイムスタンプで Notion をフィルタ（`on_or_after` / `before`）。遅延発火しても境界は14:00固定で、隣接週が隙間なく連続する（ADR-0004 の前日ウィンドウと同じ思想）。
-- **heavy衝突の静的担保**: `dueHours(weeklyAt(_, h))` は `[h]` を返す（曜日非依存・保守的）。これにより `schedule.test.ts` の「同一時刻にheavyが2つ以上dueなら fail」に自動で乗る。日曜14時台は他ジョブが無い空き枠で、gmail-digest の heavy（7時台）とも衝突しない＝6分枠を単独使用できる。
+- 判定は **`currentWeekday === weekday && hour === hour`**。当日／今週ガードも ScriptProperties 状態も持たない（ADR-0009 で catch-up を全廃したため）。日曜14時台の毎時トリガー実行でちょうど1回 due になる。GASがその時刻をスキップした週は実行されず、その週分はリトライしない（次週は新しいウィンドウ）。
+- 集計ウィンドウは **日曜14:00 JST境界にアンカーしたローリング7日**（先週日14:00〜今週日14:00）。`created_time` の ISO 8601 タイムスタンプで Notion をフィルタ（`on_or_after` / `before`）。境界は fire-time ではなく14:00に固定するので、正常発火する限り隣接週が隙間なく連続する（ADR-0004 の前日ウィンドウと同じ思想）。
+- **heavy衝突の静的担保**: `dueHours(weeklyAt(_, h))` は `[h]` を返す（曜日非依存）。exact-hour 化により gmail-digest の heavy も7時ちょうどにしか due にならないため、`schedule.test.ts` の「同一時刻にheavyが2つ以上dueなら fail」が**本物の保証**になり、日曜14時台の heavy 単独使用＝6分枠の単独使用を静的に証明できる（catch-up 尾が無いので証明が成立する。ADR-0009）。
 
 ### 7. PIIマスキングは不要
 
@@ -82,7 +82,7 @@ scheduler に週次の発火条件 `weeklyAt(weekday, hour)` を追加する。
 - weekly-notion-summary が「構想中」から「設計確定・未実装」へ進む。実装は別作業。
 - トレンドの正体が「タグの名寄せクラスタ」に定義され、表記揺れに強い集約ができる。「横断テーマ抽出」と「人気タグ集計」が1回のGemini呼び出しに統合される。
 - 集計の正確さはコードが保証し、Geminiは名寄せと文章生成だけを担う。Geminiの数え間違いがランキングに混入しない。
-- scheduler に週次粒度が加わり、ADR-0007 のフラクタル拡張が日次→週次へ実証される。`dueHours` と当日ガードを週次へ一般化する小改修が `scheduler.ts` に入る。
+- scheduler に週次粒度（`weeklyAt`）が加わり、ADR-0007 のフラクタル拡張が日次→週次へ実証される。発火判定は exact-hour 一致でガードを持たない（ADR-0009）。`scheduler.ts` に `weeklyAt` 述語と曜日判定を足す小改修が入る。
 - 重い週次ジョブの隔離は「空き時刻に単独配置」＋「`schedule.test.ts` の heavy 不変条件」で担保され、6分タイムアウト事故をデプロイ前に潰せる。
 - overview を使わない代償としてテーマ粒度はタイトル＋タグ依存になる。浅い場合の打ち手（overviewプロパティ化）は予約済み。
 - Slackは単一チャンネル共有のままで、専用チャンネル分離はマルチチャンネルconfig（ADR-0007 将来作業）に従属する。
