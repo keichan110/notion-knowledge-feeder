@@ -19,6 +19,7 @@ export type GeminiConfig = Pick<Config, 'geminiApiKey' | 'geminiModel'>;
 export type NotionConfig = Pick<Config, 'notionAccessToken' | 'notionDbId'>;
 export type SlackConfig = Pick<Config, 'slackBotToken' | 'slackChannelId'>;
 export type GmailDigestConfig = Pick<Config, 'slackBotToken' | 'slackChannelId'>;
+export type WeeklySummaryConfig = Pick<Config, 'slackBotToken' | 'slackChannelId'>;
 export type DlpConfig = Pick<Config, 'dlpProjectId'>;
 
 type ConfigSnapshot = Record<string, string>;
@@ -93,6 +94,15 @@ export function getNotionConfig(): NotionConfig {
  * @returns Slack投稿先設定
  */
 export function getGmailDigestConfig(): GmailDigestConfig {
+  const { slackBotToken, slackChannelId } = buildConfig(getConfigSnapshot());
+  return { slackBotToken, slackChannelId };
+}
+
+/**
+ * weekly-notion-summary用のSlack投稿先設定をキャッシュ済みスクリプトプロパティから取得する。
+ * @returns Slack投稿先設定
+ */
+export function getWeeklySummaryConfig(): WeeklySummaryConfig {
   const { slackBotToken, slackChannelId } = buildConfig(getConfigSnapshot());
   return { slackBotToken, slackChannelId };
 }

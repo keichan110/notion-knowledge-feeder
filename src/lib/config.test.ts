@@ -6,6 +6,7 @@ import {
   getGmailDigestConfig,
   getNotionConfig,
   getSecretConfig,
+  getWeeklySummaryConfig,
   resetConfigCache,
 } from './config';
 
@@ -60,6 +61,7 @@ describe('getConfig', () => {
     getGeminiConfig();
     getNotionConfig();
     getGmailDigestConfig();
+    getWeeklySummaryConfig();
     getDlpConfig();
 
     expect(PropertiesService.getScriptProperties().getProperties).toHaveBeenCalledTimes(1);
@@ -106,6 +108,10 @@ describe('getConfig', () => {
       notionDbId: 'db-id',
     });
     expect(getGmailDigestConfig()).toEqual({
+      slackBotToken: 'xoxb-test',
+      slackChannelId: 'C123456',
+    });
+    expect(getWeeklySummaryConfig()).toEqual({
       slackBotToken: 'xoxb-test',
       slackChannelId: 'C123456',
     });

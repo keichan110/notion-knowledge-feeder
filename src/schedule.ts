@@ -1,4 +1,4 @@
-import { always, dailyAt, everyHours, type Job } from './lib/scheduler';
+import { always, dailyAt, everyHours, type Job, weeklyAt } from './lib/scheduler';
 import {
   processPendingArticles,
   processTrendingQiita,
@@ -6,6 +6,7 @@ import {
 } from './pipelines/article-ingest';
 import { runGmailDigest } from './pipelines/gmail-digest';
 import { runLabelCleanup as runGmailLabelCleanup } from './pipelines/gmail-label-cleanup';
+import { runWeeklyNotionSummary } from './pipelines/weekly-notion-summary';
 
 /**
  * 10分トリガーで分岐する宣言的スケジュールテーブル。
@@ -47,5 +48,11 @@ export const HOURLY_SCHEDULE: readonly Job[] = [
     weight: 'light',
     at: everyHours(3),
     run: () => runGmailLabelCleanup(),
+  },
+  {
+    name: 'weekly-notion-summary',
+    weight: 'heavy',
+    at: weeklyAt(0, 14),
+    run: () => runWeeklyNotionSummary(),
   },
 ];
