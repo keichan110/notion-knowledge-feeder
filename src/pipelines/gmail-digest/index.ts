@@ -369,7 +369,7 @@ function postSlackMessage(
   params: Parameters<typeof postMessage>[2]
 ): string {
   try {
-    return postMessage(cfg.slackBotToken, cfg.slackChannelId, params);
+    return postMessage(cfg.slackBotToken, cfg.slackNotifyChannelId, params);
   } catch (err) {
     log.error(LOG_MOD, 'slack post failed', err);
     throw err;

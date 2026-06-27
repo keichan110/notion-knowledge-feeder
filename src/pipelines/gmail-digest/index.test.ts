@@ -22,7 +22,7 @@ beforeEach(() => {
   resetConfigCache();
   vi.mocked(PropertiesService.getScriptProperties().getProperties).mockReset().mockReturnValue({
     SLACK_BOT_TOKEN: 'xoxb-test',
-    SLACK_CHANNEL_ID: 'C123456',
+    SLACK_NOTIFY_CHANNEL_ID: 'C123456',
     GEMINI_API_KEY: 'gemini-key',
     GEMINI_MODEL: 'gemini-3.1-flash-lite',
     DLP_PROJECT_ID: 'dlp-project',

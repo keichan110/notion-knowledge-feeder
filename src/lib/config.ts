@@ -10,16 +10,18 @@ export type Config = {
   notionAccessToken: NotionConnectAccessToken;
   notionDbId: NotionDbId;
   slackBotToken: SlackBotToken;
-  slackChannelId: SlackChannelId;
+  slackNotifyChannelId: SlackChannelId;
+  slackErrorChannelId: SlackChannelId;
   dlpProjectId: DlpProjectId;
 };
 
 export type SecretConfig = Pick<Config, 'secretToken'>;
 export type GeminiConfig = Pick<Config, 'geminiApiKey' | 'geminiModel'>;
 export type NotionConfig = Pick<Config, 'notionAccessToken' | 'notionDbId'>;
-export type SlackConfig = Pick<Config, 'slackBotToken' | 'slackChannelId'>;
-export type GmailDigestConfig = Pick<Config, 'slackBotToken' | 'slackChannelId'>;
-export type WeeklySummaryConfig = Pick<Config, 'slackBotToken' | 'slackChannelId'>;
+export type SlackConfig = Pick<Config, 'slackBotToken' | 'slackNotifyChannelId'>;
+export type GmailDigestConfig = Pick<Config, 'slackBotToken' | 'slackNotifyChannelId'>;
+export type WeeklySummaryConfig = Pick<Config, 'slackBotToken' | 'slackNotifyChannelId'>;
+export type NotifyConfig = Pick<Config, 'slackBotToken' | 'slackErrorChannelId'>;
 export type DlpConfig = Pick<Config, 'dlpProjectId'>;
 
 type ConfigSnapshot = Record<string, string>;
@@ -49,7 +51,8 @@ function buildConfig(snapshot: ConfigSnapshot): Config {
     notionAccessToken: snapshot.NOTION_ACCESS_TOKEN ?? '',
     notionDbId: snapshot.NOTION_DB_ID ?? '',
     slackBotToken: (snapshot.SLACK_BOT_TOKEN ?? '') as SlackBotToken,
-    slackChannelId: (snapshot.SLACK_CHANNEL_ID ?? '') as SlackChannelId,
+    slackNotifyChannelId: (snapshot.SLACK_NOTIFY_CHANNEL_ID ?? '') as SlackChannelId,
+    slackErrorChannelId: (snapshot.SLACK_ERROR_CHANNEL_ID ?? '') as SlackChannelId,
     dlpProjectId: snapshot.DLP_PROJECT_ID ?? '',
   };
 }
@@ -94,8 +97,8 @@ export function getNotionConfig(): NotionConfig {
  * @returns Slack投稿先設定
  */
 export function getGmailDigestConfig(): GmailDigestConfig {
-  const { slackBotToken, slackChannelId } = buildConfig(getConfigSnapshot());
-  return { slackBotToken, slackChannelId };
+  const { slackBotToken, slackNotifyChannelId } = buildConfig(getConfigSnapshot());
+  return { slackBotToken, slackNotifyChannelId };
 }
 
 /**
@@ -103,8 +106,17 @@ export function getGmailDigestConfig(): GmailDigestConfig {
  * @returns Slack投稿先設定
  */
 export function getWeeklySummaryConfig(): WeeklySummaryConfig {
-  const { slackBotToken, slackChannelId } = buildConfig(getConfigSnapshot());
-  return { slackBotToken, slackChannelId };
+  const { slackBotToken, slackNotifyChannelId } = buildConfig(getConfigSnapshot());
+  return { slackBotToken, slackNotifyChannelId };
+}
+
+/**
+ * エラー通知用のSlack投稿先設定をキャッシュ済みスクリプトプロパティから取得する。
+ * @returns エラー通知用Slack設定
+ */
+export function getNotifyConfig(): NotifyConfig {
+  const { slackBotToken, slackErrorChannelId } = buildConfig(getConfigSnapshot());
+  return { slackBotToken, slackErrorChannelId };
 }
 
 /**

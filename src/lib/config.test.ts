@@ -4,6 +4,7 @@ import {
   getDlpConfig,
   getGeminiConfig,
   getGmailDigestConfig,
+  getNotifyConfig,
   getNotionConfig,
   getSecretConfig,
   getWeeklySummaryConfig,
@@ -24,7 +25,8 @@ describe('getConfig', () => {
       NOTION_ACCESS_TOKEN: 'notion-key',
       NOTION_DB_ID: 'db-id',
       SLACK_BOT_TOKEN: 'xoxb-test',
-      SLACK_CHANNEL_ID: 'C123456',
+      SLACK_NOTIFY_CHANNEL_ID: 'C123456',
+      SLACK_ERROR_CHANNEL_ID: 'C789012',
       DLP_PROJECT_ID: 'dlp-project',
     });
 
@@ -37,7 +39,8 @@ describe('getConfig', () => {
       notionAccessToken: 'notion-key',
       notionDbId: 'db-id',
       slackBotToken: 'xoxb-test',
-      slackChannelId: 'C123456',
+      slackNotifyChannelId: 'C123456',
+      slackErrorChannelId: 'C789012',
       dlpProjectId: 'dlp-project',
     });
     expect(PropertiesService.getScriptProperties().getProperties).toHaveBeenCalledTimes(1);
@@ -51,7 +54,8 @@ describe('getConfig', () => {
       NOTION_ACCESS_TOKEN: 'notion-key',
       NOTION_DB_ID: 'db-id',
       SLACK_BOT_TOKEN: 'xoxb-test',
-      SLACK_CHANNEL_ID: 'C123456',
+      SLACK_NOTIFY_CHANNEL_ID: 'C123456',
+      SLACK_ERROR_CHANNEL_ID: 'C789012',
       DLP_PROJECT_ID: 'dlp-project',
     });
 
@@ -62,6 +66,7 @@ describe('getConfig', () => {
     getNotionConfig();
     getGmailDigestConfig();
     getWeeklySummaryConfig();
+    getNotifyConfig();
     getDlpConfig();
 
     expect(PropertiesService.getScriptProperties().getProperties).toHaveBeenCalledTimes(1);
@@ -79,7 +84,8 @@ describe('getConfig', () => {
       notionAccessToken: '',
       notionDbId: '',
       slackBotToken: '',
-      slackChannelId: '',
+      slackNotifyChannelId: '',
+      slackErrorChannelId: '',
       dlpProjectId: '',
     });
   });
@@ -92,7 +98,8 @@ describe('getConfig', () => {
       NOTION_ACCESS_TOKEN: 'notion-key',
       NOTION_DB_ID: 'db-id',
       SLACK_BOT_TOKEN: 'xoxb-test',
-      SLACK_CHANNEL_ID: 'C123456',
+      SLACK_NOTIFY_CHANNEL_ID: 'C123456',
+      SLACK_ERROR_CHANNEL_ID: 'C789012',
       DLP_PROJECT_ID: 'dlp-project',
     });
 
@@ -109,11 +116,15 @@ describe('getConfig', () => {
     });
     expect(getGmailDigestConfig()).toEqual({
       slackBotToken: 'xoxb-test',
-      slackChannelId: 'C123456',
+      slackNotifyChannelId: 'C123456',
     });
     expect(getWeeklySummaryConfig()).toEqual({
       slackBotToken: 'xoxb-test',
-      slackChannelId: 'C123456',
+      slackNotifyChannelId: 'C123456',
+    });
+    expect(getNotifyConfig()).toEqual({
+      slackBotToken: 'xoxb-test',
+      slackErrorChannelId: 'C789012',
     });
     expect(getDlpConfig()).toEqual({
       dlpProjectId: 'dlp-project',

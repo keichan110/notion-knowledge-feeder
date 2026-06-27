@@ -33,7 +33,7 @@ beforeEach(() => {
     NOTION_ACCESS_TOKEN: 'notion-token',
     NOTION_DB_ID: 'db-id',
     SLACK_BOT_TOKEN: 'xoxb-test',
-    SLACK_CHANNEL_ID: 'C123456',
+    SLACK_NOTIFY_CHANNEL_ID: 'C123456',
     GEMINI_API_KEY: 'gemini-key',
     GEMINI_MODEL: 'gemini-3.1-flash-lite',
   });

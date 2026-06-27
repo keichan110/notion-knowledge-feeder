@@ -17,7 +17,7 @@ ADR-0001 で Capability層 / Pipeline層を分離し、`gmail` / `slack` Capabil
 ### 共通
 
 - **Capability の追加**: `gmail`（読み取り＋ラベル付け外し）、`slack`（メッセージ投稿）。いずれも薄いクライアントに徹し、検索クエリ・ラベル名・メッセージ整形などの業務判断はPipelineが所有する。
-- **Slack送信は Web API（`chat.postMessage` / Botトークン）**。`slack` Capability は `postMessage(channel, text/blocks)` を提供する。設定はスクリプトプロパティ `SLACK_BOT_TOKEN` ＋ `SLACK_CHANNEL_ID`。
+- **Slack送信は Web API（`chat.postMessage` / Botトークン）**。`slack` Capability は `postMessage(channel, text/blocks)` を提供する。設定はスクリプトプロパティ `SLACK_BOT_TOKEN` ＋ `SLACK_NOTIFY_CHANNEL_ID`（ADR-0010 でリネーム）。
 - 両機能とも**時間駆動で同期完結**し、キューは使わない。
 
 ### 機能1: gmail-label-cleanup（メンテナンス型）
@@ -44,7 +44,7 @@ ADR-0001 で Capability層 / Pipeline層を分離し、`gmail` / `slack` Capabil
 | キー | 用途 |
 |---|---|
 | `SLACK_BOT_TOKEN` | Slack Web API のBotトークン |
-| `SLACK_CHANNEL_ID` | 投稿先チャンネル |
+| `SLACK_NOTIFY_CHANNEL_ID` | 業務通知の投稿先チャンネル（ADR-0010 で `SLACK_CHANNEL_ID` からリネーム） |
 | Newsletterラベル名 / 運用ラベル名 | ラベル文字列の設定化（ハードコード回避）※後にコード定数化し、本項のスクリプトプロパティ管理は廃止した（cleanup・digest とも） |
 
 ## Consequences

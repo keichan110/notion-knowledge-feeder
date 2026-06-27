@@ -23,10 +23,11 @@
 | `GEMINI_MODEL` | | 使用する Gemini モデル名（未設定時は `gemini-3.1-flash-lite`） | 変更が必要な場合のみ設定（例: `gemini-3.1-pro-preview`） |
 | `NOTION_ACCESS_TOKEN` | ✅ | Notion コネクトのアクセストークン | [Notion Developer Portal](https://app.notion.com/developers/connections) でコネクトを作成し、Configuration タブのトークンをコピー |
 | `NOTION_DB_ID` | ✅ | 保存先 Notion データベースの ID | データベースページを開き、URL の `https://www.notion.so/<workspace>/<database-id>?v=...` の `<database-id>` 部分（ハイフン区切りの 32 文字） |
-| `SLACK_BOT_TOKEN` | ✅※ | Newsletter ダイジェストを投稿する Slack Bot トークン | Slack アプリを作成し Bot User OAuth Token（`xoxb-...`）を取得（詳細は下記） |
-| `SLACK_CHANNEL_ID` | ✅※ | ダイジェストの投稿先 Slack チャンネル ID | 投稿先チャンネルの「チャンネル詳細」最下部、または URL 末尾の `C...`（詳細は下記） |
+| `SLACK_BOT_TOKEN` | ✅※ | Slack Bot トークン（業務通知・エラー通知で共用） | Slack アプリを作成し Bot User OAuth Token（`xoxb-...`）を取得（詳細は下記） |
+| `SLACK_NOTIFY_CHANNEL_ID` | ✅※ | 業務通知（ダイジェスト等）の投稿先 Slack チャンネル ID | 投稿先チャンネルの「チャンネル詳細」最下部、または URL 末尾の `C...`（詳細は下記） |
+| `SLACK_ERROR_CHANNEL_ID` | ✅※ | エラー通知専用の投稿先 Slack チャンネル ID | 業務通知とは別のチャンネルを推奨（詳細は下記） |
 
-※ `SLACK_BOT_TOKEN` / `SLACK_CHANNEL_ID` は **Newsletter ダイジェスト機能（`runGmailDigest`）を使う場合に必須**。使わない場合は未設定でも他の機能は動作する。
+※ `SLACK_BOT_TOKEN` / `SLACK_NOTIFY_CHANNEL_ID` / `SLACK_ERROR_CHANNEL_ID` は **Slack 通知機能を使う場合に必須**。使わない場合は未設定でも他の機能は動作する。
 
 ---
 
@@ -113,14 +114,22 @@ URL にハイフンが含まれている場合（`abcdef12-3456-7890-abcd-ef1234
 
 ---
 
-### `SLACK_CHANNEL_ID`（ダイジェスト機能を使う場合は必須）
+### `SLACK_NOTIFY_CHANNEL_ID`（Slack 通知機能を使う場合は必須）
 
-ダイジェストの投稿先チャンネル ID です（チャンネル名ではなく `C...` 形式の ID）。
+業務通知（Newsletter ダイジェスト・週次サマリー等）の投稿先チャンネル ID です（チャンネル名ではなく `C...` 形式の ID）。
 
 1. Slack で対象チャンネルを開き、ヘッダーのチャンネル名をクリック
 2. 表示されたダイアログ最下部の **「チャンネル ID」**（`C` で始まる文字列）をコピー
 
 ブラウザ版 Slack の場合、URL 末尾の `.../C0123ABCD` の `C0123ABCD` 部分でも確認できます。
+
+---
+
+### `SLACK_ERROR_CHANNEL_ID`（Slack 通知機能を使う場合は必須）
+
+エラー通知専用の投稿先チャンネル ID です。業務通知チャンネルとは別のチャンネルを設定することを推奨します（エラー通知が業務通知のノイズにならないようにするため）。
+
+取得方法は `SLACK_NOTIFY_CHANNEL_ID` と同じです。Bot アプリをこのチャンネルにも招待してください。
 
 ---
 
