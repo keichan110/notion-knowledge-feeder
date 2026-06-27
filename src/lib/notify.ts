@@ -48,7 +48,7 @@ function formatMessage(params: NotifyParams): { text: string; attachments: Slack
   const blocks: unknown[] = [
     {
       type: 'section',
-      text: { type: 'mrkdwn', text: params.message },
+      text: { type: 'mrkdwn', text: truncate(params.message) },
     },
     {
       type: 'section',

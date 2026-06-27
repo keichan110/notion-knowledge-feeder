@@ -134,6 +134,20 @@ describe('notifySlack', () => {
     expect(errorBlock?.text.text).toContain('raw string error');
   });
 
+  it('長い message は truncate される', () => {
+    const longMessage = 'x'.repeat(3000);
+    notifySlack({
+      severity: 'error',
+      job: 'test-job',
+      message: longMessage,
+    });
+
+    const att = getAttachment();
+    const msgBlock = att.blocks?.[0] as { type: string; text: { text: string } };
+    expect(msgBlock.text.text).toContain('…(truncated)');
+    expect(msgBlock.text.text.length).toBeLessThan(2600);
+  });
+
   it('長い context は truncate される', () => {
     const longValue = 'x'.repeat(3000);
     notifySlack({
