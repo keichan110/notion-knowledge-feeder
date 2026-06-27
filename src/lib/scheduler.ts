@@ -2,12 +2,12 @@ import { log } from './log';
 
 const JST_TIME_ZONE = 'Asia/Tokyo';
 const LOG_MOD = 'scheduler';
-const DAILY_GUARD_PREFIX = 'scheduler:dailyAt:lastRunDate:';
 
 /** 宣言的スケジュールテーブルで使う発火条件。 */
 export type Schedule =
   | { kind: 'always' }
   | { kind: 'dailyAt'; hour: number }
+  | { kind: 'weeklyAt'; weekday: number; hour: number }
   | { kind: 'everyHours'; n: number };
 
 /** スケジューラが実行する1ジョブの定義。 */
@@ -35,6 +35,18 @@ export type RunCadenceOptions = {
 export const dailyAt = (hour: number): Schedule => ({ kind: 'dailyAt', hour });
 
 /**
+ * 週次の発火条件を作る。
+ * @param weekday JSTで発火する曜日（日曜=0〜土曜=6）
+ * @param hour JSTで発火する時刻（0〜23）
+ * @returns 週次スケジュール
+ */
+export const weeklyAt = (weekday: number, hour: number): Schedule => ({
+  kind: 'weeklyAt',
+  weekday,
+  hour,
+});
+
+/**
  * 常に発火する条件を作る。
  * @returns 常時実行スケジュール
  */
@@ -55,6 +67,7 @@ export const everyHours = (n: number): Schedule => ({ kind: 'everyHours', n });
 export function dueHours(at: Schedule): number[] {
   if (at.kind === 'always') return hoursOfDay();
   if (at.kind === 'dailyAt') return [at.hour];
+  if (at.kind === 'weeklyAt') return [at.hour];
   return hoursOfDay().filter((hour) => hour % at.n === 0);
 }
 
@@ -83,17 +96,14 @@ export function runTrigger(name: string, fn: () => void, onError = defaultOnErro
 export function runCadence(jobs: readonly Job[], opts: RunCadenceOptions = {}): void {
   const now = opts.now ?? new Date();
   const hour = currentJstHour(now);
-  const today = currentJstDate(now);
+  const weekday = currentJstWeekday(now);
   const errors: TriggerFailure[] = [];
 
   for (const job of jobs) {
-    if (!isDue(job, hour, today)) continue;
+    if (!isDue(job, hour, weekday)) continue;
 
     try {
       runTrigger(job.name, job.run, opts.onError);
-      if (job.at.kind === 'dailyAt') {
-        markDailyJobDone(job.name, today);
-      }
     } catch (err) {
       errors.push({ name: job.name, err });
     }
@@ -116,32 +126,24 @@ class CadenceAggregateError extends Error {
   }
 }
 
-function isDue(job: Job, hour: number, today: string): boolean {
+function isDue(job: Job, hour: number, weekday: number): boolean {
   if (job.at.kind === 'always') return true;
-  if (job.at.kind === 'dailyAt') {
-    return hour >= job.at.hour && lastDailyRunDate(job.name) !== today;
+  if (job.at.kind === 'dailyAt') return hour === job.at.hour;
+  if (job.at.kind === 'weeklyAt') {
+    return weekday === job.at.weekday && hour === job.at.hour;
   }
   return hour % job.at.n === 0;
-}
-
-function lastDailyRunDate(name: string): string | null {
-  return PropertiesService.getScriptProperties().getProperty(dailyGuardKey(name));
-}
-
-function markDailyJobDone(name: string, today: string): void {
-  PropertiesService.getScriptProperties().setProperty(dailyGuardKey(name), today);
-}
-
-function dailyGuardKey(name: string): string {
-  return `${DAILY_GUARD_PREFIX}${name}`;
 }
 
 function currentJstHour(now: Date): number {
   return Number(Utilities.formatDate(now, JST_TIME_ZONE, 'H'));
 }
 
-function currentJstDate(now: Date): string {
-  return Utilities.formatDate(now, JST_TIME_ZONE, 'yyyy-MM-dd');
+function currentJstWeekday(now: Date): number {
+  // SimpleDateFormat の 'u' は GAS でのサポートが不確実なため使わない。
+  // 確実にサポートされる 'yyyy-MM-dd' でJST日付を得て、JS標準の getUTCDay()（日曜=0）で曜日を取る。
+  const jstDate = Utilities.formatDate(now, JST_TIME_ZONE, 'yyyy-MM-dd');
+  return new Date(`${jstDate}T00:00:00Z`).getUTCDay();
 }
 
 function hoursOfDay(): number[] {

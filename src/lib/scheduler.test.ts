@@ -15,34 +15,26 @@ import {
   type Job,
   runCadence,
   runTrigger,
+  weeklyAt,
 } from './scheduler';
 
-const TODAY = '2026-06-24';
+// 2026-06-23T23:00:00Z = JST 2026-06-24 08:00（水曜=weekday 3）
 const NOW = new Date('2026-06-23T23:00:00.000Z');
-const DAILY_GUARD_PREFIX = 'scheduler:dailyAt:lastRunDate:';
-
-let getProperty: ReturnType<typeof vi.fn>;
-let setProperty: ReturnType<typeof vi.fn>;
+// 日曜=0
+const SUNDAY = 0;
+const WEDNESDAY = 3;
 
 beforeEach(() => {
-  getProperty = vi.fn().mockReturnValue(null);
-  setProperty = vi.fn();
-
-  vi.mocked(PropertiesService.getScriptProperties).mockReturnValue({
-    getProperty,
-    getProperties: vi.fn().mockReturnValue({}),
-    setProperty,
-    deleteProperty: vi.fn(),
-    deleteAllProperties: vi.fn(),
-    getKeys: vi.fn().mockReturnValue([]),
-    setProperties: vi.fn(),
-  });
-  mockJst('8', TODAY);
+  mockJst('8', WEDNESDAY);
 });
 
 describe('dueHours', () => {
   it('dailyAt(7) は [7] を返す', () => {
     expect(dueHours(dailyAt(7))).toEqual([7]);
+  });
+
+  it('weeklyAt(0, 14) は曜日非依存で [14] を返す', () => {
+    expect(dueHours(weeklyAt(SUNDAY, 14))).toEqual([14]);
   });
 
   it('everyHours(3) は [0,3,6,9,12,15,18,21] を返す', () => {
@@ -97,57 +89,87 @@ describe('runTrigger', () => {
 });
 
 describe('runCadence', () => {
-  it('dailyAt: hour>=target かつ当日未実行なら run し setProperty で当日日付を記録する', () => {
-    mockJst('8', TODAY);
+  it('dailyAt: hour===target なら run される', () => {
+    mockJst('7', WEDNESDAY);
     const run = vi.fn();
 
     runCadence([job('daily-job', dailyAt(7), run)], { now: NOW });
 
     expect(run).toHaveBeenCalledTimes(1);
-    expect(setProperty).toHaveBeenCalledWith(`${DAILY_GUARD_PREFIX}daily-job`, TODAY);
   });
 
-  it('dailyAt: 当日実行済み（getProperty が today を返す）ならスキップする', () => {
-    getProperty.mockReturnValue(TODAY);
+  it('dailyAt: hour>target でも run されない（exact-hour・catch-upなし）', () => {
+    mockJst('8', WEDNESDAY);
     const run = vi.fn();
 
     runCadence([job('daily-job', dailyAt(7), run)], { now: NOW });
 
     expect(run).not.toHaveBeenCalled();
-    expect(setProperty).not.toHaveBeenCalled();
-  });
-
-  it('dailyAt catch-up: now=8時・target=7・未実行で run される', () => {
-    mockJst('8', TODAY);
-    const run = vi.fn();
-
-    runCadence([job('daily-job', dailyAt(7), run)], { now: NOW });
-
-    expect(run).toHaveBeenCalledTimes(1);
   });
 
   it('dailyAt: hour<target なら run されない', () => {
-    mockJst('6', TODAY);
+    mockJst('6', WEDNESDAY);
     const run = vi.fn();
 
     runCadence([job('daily-job', dailyAt(7), run)], { now: NOW });
 
     expect(run).not.toHaveBeenCalled();
-    expect(setProperty).not.toHaveBeenCalled();
   });
 
-  it('everyHours: hour%n===0 で run され setProperty は呼ばれない', () => {
-    mockJst('9', TODAY);
+  it('dailyAt: ScriptProperties を一切触らない', () => {
+    mockJst('7', WEDNESDAY);
+
+    runCadence([job('daily-job', dailyAt(7), vi.fn())], { now: NOW });
+
+    expect(PropertiesService.getScriptProperties).not.toHaveBeenCalled();
+  });
+
+  it('weeklyAt: 曜日と時刻が一致したら run される', () => {
+    mockJst('14', SUNDAY);
+    const run = vi.fn();
+
+    runCadence([job('weekly-job', weeklyAt(SUNDAY, 14), run)], { now: NOW });
+
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it('weeklyAt: 時刻が一致しても曜日が外れたら run されない', () => {
+    mockJst('14', WEDNESDAY);
+    const run = vi.fn();
+
+    runCadence([job('weekly-job', weeklyAt(SUNDAY, 14), run)], { now: NOW });
+
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it('weeklyAt: 曜日が一致しても時刻が外れたら run されない', () => {
+    mockJst('13', SUNDAY);
+    const run = vi.fn();
+
+    runCadence([job('weekly-job', weeklyAt(SUNDAY, 14), run)], { now: NOW });
+
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it('weeklyAt: ScriptProperties を一切触らない', () => {
+    mockJst('14', SUNDAY);
+
+    runCadence([job('weekly-job', weeklyAt(SUNDAY, 14), vi.fn())], { now: NOW });
+
+    expect(PropertiesService.getScriptProperties).not.toHaveBeenCalled();
+  });
+
+  it('everyHours: hour%n===0 で run される', () => {
+    mockJst('9', WEDNESDAY);
     const run = vi.fn();
 
     runCadence([job('every-job', everyHours(3), run)], { now: NOW });
 
     expect(run).toHaveBeenCalledTimes(1);
-    expect(setProperty).not.toHaveBeenCalled();
   });
 
   it('everyHours: hour%n!==0 で run されない', () => {
-    mockJst('8', TODAY);
+    mockJst('8', WEDNESDAY);
     const run = vi.fn();
 
     runCadence([job('every-job', everyHours(3), run)], { now: NOW });
@@ -155,14 +177,13 @@ describe('runCadence', () => {
     expect(run).not.toHaveBeenCalled();
   });
 
-  it('always: 時刻に関係なく run され setProperty は呼ばれない', () => {
-    mockJst('5', TODAY);
+  it('always: 時刻に関係なく run される', () => {
+    mockJst('5', WEDNESDAY);
     const run = vi.fn();
 
     runCadence([job('always-job', always(), run)], { now: NOW });
 
     expect(run).toHaveBeenCalledTimes(1);
-    expect(setProperty).not.toHaveBeenCalled();
   });
 
   it('集約: 一部ジョブが throw しても残りのジョブは実行され最後に AggregateError 相当が throw される', () => {
@@ -180,19 +201,6 @@ describe('runCadence', () => {
     ).toThrow('runCadence failed: failed-job');
 
     expect(nextRun).toHaveBeenCalledTimes(1);
-  });
-
-  it('dailyAt 失敗時: 当日ガードが記録されない（setProperty が呼ばれない）', () => {
-    const err = new Error('failed');
-    const run = vi.fn(() => {
-      throw err;
-    });
-
-    expect(() =>
-      runCadence([job('daily-job', dailyAt(7), run)], { now: NOW, onError: vi.fn() })
-    ).toThrow('runCadence failed: daily-job');
-
-    expect(setProperty).not.toHaveBeenCalled();
   });
 
   it('onError フックが失敗ジョブごとに呼ばれる', () => {
@@ -220,9 +228,13 @@ describe('runCadence', () => {
   });
 });
 
-function mockJst(hour: string, today: string): void {
+function mockJst(hour: string, weekday: number): void {
+  // currentJstWeekday は 'yyyy-MM-dd' を getUTCDay() に渡す。2026-06-21 は日曜なので
+  // weekday（日曜=0）を足した日付を返せば、getUTCDay() が同じ weekday を返す。
+  const day = String(21 + weekday).padStart(2, '0');
+  const date = `2026-06-${day}`;
   vi.mocked(Utilities.formatDate).mockImplementation((_date, _tz, fmt) =>
-    fmt === 'H' ? hour : today
+    fmt === 'H' ? hour : date
   );
 }
 
